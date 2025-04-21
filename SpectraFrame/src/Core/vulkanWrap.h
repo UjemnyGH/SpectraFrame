@@ -13,6 +13,9 @@
 * - 03.04.2025
 *	Library is usable and can do something
 * 
+* - 06.04.2025
+*	RenderPass is now wrapped into usable class
+* 
 * Have fun, Piotr UjemnyGH Plombon ;)
 */
 
@@ -33,6 +36,7 @@
 #include <cassert>
 // For arrays
 #include <array>
+#include <unordered_map>
 
 #define VKWNS vkw
 
@@ -150,6 +154,15 @@ namespace VKWNS {
 		 */
 		void _getAvailableSurfaceData();
 
+		/**
+		 * @brief Finds supported format from provided desiredFormats, first format in desiredFormats is most wanted
+		 * @param desiredFormats 
+		 * @param tiling 
+		 * @param features 
+		 * @return 
+		 */
+		VkFormat _findSupportedFormat(const std::vector<VkFormat>& desiredFormats, const VkImageTiling tiling, const VkFormatFeatureFlags features);
+
 	public:
 		// Public access for those who didn`t find appropriate function wrapping what they need
 		// All this structs are set to default values in constructor so set what you want and rest should work
@@ -254,6 +267,12 @@ namespace VKWNS {
 		 * @return 
 		 */
 		VkDevice& getDevice();
+
+		/**
+		 * @brief Gets best depth format
+		 * @return 
+		 */
+		VkFormat getDepthFormat();
 
 		// Setters
 
@@ -1590,6 +1609,72 @@ namespace VKWNS {
 	};
 #pragma endregion
 
+#pragma region RenderPass class declaration
+	class RenderPass {
+	public:
+		struct Subpass {
+			std::vector<VkAttachmentReference2> subpassInputAttachmentRefs;
+			std::vector<VkAttachmentReference2> subpassOutputAttachmentRefs;
+			VkAttachmentReference2 subpassDepthAttachmentRef;
+			bool depthRefExist;
+
+			VkSubpassDescription2 subpassDescription;
+			std::vector<VkSubpassDependency2> subpassDependencies;
+		};
+
+	private:
+		VkRenderPass mRenderPass;
+
+		std::vector<Subpass> mSubpasses;
+		std::vector<VkAttachmentDescription2> mAttachments;
+		std::unordered_map<std::string, uint32_t> mAttachmentIndices;
+
+		VkWrapCore* mCorePointer;
+
+	public:
+		VkRenderPassCreateInfo2 renderPassInfo;
+
+		RenderPass();
+
+		~RenderPass();
+
+		VkRenderPass& getRenderPass();
+
+		std::vector<VkAttachmentDescription2>& getAttachments();
+
+		std::vector<Subpass>& getSubpasses();
+
+		uint32_t getAttachmentId(const std::string name);
+
+		VkWrapCore* getCorePtr();
+
+		RenderPass& setCorePtr(VkWrapCore* const pCore);
+
+		RenderPass& addAttachment(const std::string name, const VkFormat format, const VkSampleCountFlagBits samples, const VkAttachmentLoadOp loadOp, const VkAttachmentStoreOp storeOp, const VkImageLayout finalLayout);
+
+		RenderPass& clearAttachments();
+
+		RenderPass& addSubpass(const bool withDepthReference);
+
+		RenderPass& clearSubpasses();
+
+		RenderPass& addSubpassDependency(const uint32_t subpassId, const uint32_t srcSubpass, const uint32_t dstSubpass, const VkPipelineStageFlags srcStage, const VkPipelineStageFlags dstStage, const VkAccessFlags srcAccess, const VkAccessFlags dstAccess);
+
+		RenderPass& clearSubpassDependencies(const uint32_t subpassId);
+
+		RenderPass& subpassAddInputRef(const uint32_t subpassId, const uint32_t attachment, const VkImageLayout layout, const VkImageAspectFlags aspectMask);
+
+		RenderPass& subpassAddOutputRef(const uint32_t subpassId, const uint32_t attachment, const VkImageLayout layout, const VkImageAspectFlags aspectMask);
+
+		RenderPass& clearSubpassRefs(const uint32_t subpassId);
+
+		RenderPass& subpassDepthRef(const uint32_t subpassId, const uint32_t attachment, const VkImageLayout layout, const VkImageAspectFlags aspectMask);
+
+		RenderPass& create();
+
+		void destroy();
+	};
+#pragma endregion
 }
 
 #endif

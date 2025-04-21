@@ -150,6 +150,22 @@ void VKWNS::VkWrapCore::_getAvailableSurfaceData() {
 	vkGetPhysicalDeviceSurfacePresentModesKHR(mSelectedPhysicalDevice, mSurface, &presentModeCount, &mAvailableSurfacePresentModes[0]);
 }
 
+VkFormat VKWNS::VkWrapCore::_findSupportedFormat(const std::vector<VkFormat>& desiredFormats, const VkImageTiling tiling, const VkFormatFeatureFlags features) {
+	for (VkFormat format : desiredFormats) {
+		VkFormatProperties properties;
+		vkGetPhysicalDeviceFormatProperties(mSelectedPhysicalDevice, format, &properties);
+
+		if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features) {
+			return format;
+		}
+		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features) {
+			return format;
+		}
+	}
+
+	return VK_FORMAT_D32_SFLOAT_S8_UINT;
+}
+
 #pragma endregion
 
 #pragma region VkWrapCore public method definitions
@@ -241,6 +257,8 @@ VkQueue& VKWNS::VkWrapCore::getTransferQueue() { return mTransferQueue; }
 VkQueue& VKWNS::VkWrapCore::getComputeQueue() { return mComputeQueue; }
 
 VkDevice& VKWNS::VkWrapCore::getDevice() { return mDevice; }
+
+VkFormat VKWNS::VkWrapCore::getDepthFormat() { return _findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT); }
 
 // Setters
 
@@ -608,9 +626,11 @@ VKWNS::VkWrapCore& VKWNS::VkWrapCore::createDevice() {
 }
 
 VKWNS::VkWrapCore& VKWNS::VkWrapCore::waitForDeviceIdle() {
-	assert(mDevice != VK_NULL_HANDLE);
+	// Causes error at the end
+	//assert(mDevice != VK_NULL_HANDLE);
 
-	vkDeviceWaitIdle(mDevice);
+	if(mDevice)
+		vkDeviceWaitIdle(mDevice);
 
 	return *this;
 }
@@ -2971,6 +2991,202 @@ void VKWNS::Sampler::destroy() {
 		vkDestroySampler(mCorePointer->getDevice(), mSampler, nullptr);
 
 	mSampler = VK_NULL_HANDLE;
+}
+
+#pragma endregion
+
+#pragma region RenderPass method definitions
+
+VKWNS::RenderPass::RenderPass() {
+	renderPassInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2 };
+
+	mRenderPass = VK_NULL_HANDLE;
+	mCorePointer = nullptr;
+}
+
+VKWNS::RenderPass::~RenderPass() {
+	destroy();
+
+	mCorePointer = nullptr;
+}
+
+VkRenderPass& VKWNS::RenderPass::getRenderPass() {
+	return mRenderPass;
+}
+
+std::vector<VkAttachmentDescription2>& VKWNS::RenderPass::getAttachments() {
+	return mAttachments;
+}
+
+std::vector<VKWNS::RenderPass::Subpass>& VKWNS::RenderPass::getSubpasses() {
+	return mSubpasses;
+}
+
+uint32_t VKWNS::RenderPass::getAttachmentId(const std::string name) {
+	return mAttachmentIndices[name];
+}
+
+VKWNS::VkWrapCore* VKWNS::RenderPass::getCorePtr() {
+	return mCorePointer;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::setCorePtr(VkWrapCore* const pCore) {
+	mCorePointer = pCore;
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::addAttachment(const std::string name, const VkFormat format, const VkSampleCountFlagBits samples, const VkAttachmentLoadOp loadOp, const VkAttachmentStoreOp storeOp, const VkImageLayout finalLayout) {
+	mAttachments.emplace_back(VkAttachmentDescription2{ 
+		VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2, nullptr, 0, 
+		format, 
+		samples, 
+		loadOp, storeOp, 
+		VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE, 
+		VK_IMAGE_LAYOUT_UNDEFINED, finalLayout 
+	});
+
+	mAttachmentIndices[name] = mAttachments.size() - 1;
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::clearAttachments() {
+	mAttachments.clear();
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::addSubpass(const bool withDepthReference) {
+	mSubpasses.emplace_back(Subpass{
+		// References: input, output, depth
+		{},
+		{},
+		{},
+		// Should be with depth?
+		withDepthReference,
+		// Subpass description
+		{
+			VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+			nullptr,
+			0,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			0,
+			// Input attachments
+			0, nullptr,
+			// Color attachments
+			0, nullptr,
+			// Resolve attachment
+			nullptr,
+			// Depth attachment
+			nullptr,
+			// Preserve attachment
+			0, nullptr
+		},
+		// Subpass dependency
+		{}
+	});
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::clearSubpasses() {
+	mSubpasses.clear();
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::addSubpassDependency(const uint32_t subpassId, const uint32_t srcSubpass, const uint32_t dstSubpass, const VkPipelineStageFlags srcStage, const VkPipelineStageFlags dstStage, const VkAccessFlags srcAccess, const VkAccessFlags dstAccess) {
+	mSubpasses[subpassId].subpassDependencies.emplace_back(VkSubpassDependency2{
+		VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2, nullptr,
+		srcSubpass, dstSubpass,
+		srcStage, dstStage,
+		srcAccess, dstAccess
+	});
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::clearSubpassDependencies(const uint32_t subpassId) {
+	mSubpasses[subpassId].subpassDependencies.clear();
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::subpassAddInputRef(const uint32_t subpassId, const uint32_t attachment, const VkImageLayout layout, const VkImageAspectFlags aspectMask) {
+	mSubpasses[subpassId].subpassInputAttachmentRefs.emplace_back(VkAttachmentReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, attachment, layout, aspectMask });
+
+	mSubpasses[subpassId].subpassDescription.inputAttachmentCount = static_cast<uint32_t>(mSubpasses[subpassId].subpassInputAttachmentRefs.size());
+	mSubpasses[subpassId].subpassDescription.pInputAttachments = &mSubpasses[subpassId].subpassInputAttachmentRefs[0];
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::subpassAddOutputRef(const uint32_t subpassId, const uint32_t attachment, const VkImageLayout layout, const VkImageAspectFlags aspectMask) {
+	mSubpasses[subpassId].subpassOutputAttachmentRefs.emplace_back(VkAttachmentReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, attachment, layout, aspectMask });
+
+	mSubpasses[subpassId].subpassDescription.colorAttachmentCount = static_cast<uint32_t>(mSubpasses[subpassId].subpassOutputAttachmentRefs.size());
+	mSubpasses[subpassId].subpassDescription.pColorAttachments = &mSubpasses[subpassId].subpassOutputAttachmentRefs[0];
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::clearSubpassRefs(const uint32_t subpassId) {
+	mSubpasses[subpassId].subpassDepthAttachmentRef = {};
+	mSubpasses[subpassId].subpassInputAttachmentRefs.clear();
+	mSubpasses[subpassId].subpassOutputAttachmentRefs.clear();
+
+	mSubpasses[subpassId].subpassDescription.inputAttachmentCount = 0;
+	mSubpasses[subpassId].subpassDescription.colorAttachmentCount = 0;
+	mSubpasses[subpassId].subpassDescription.pInputAttachments = nullptr;
+	mSubpasses[subpassId].subpassDescription.pColorAttachments = nullptr;
+	mSubpasses[subpassId].subpassDescription.pDepthStencilAttachment = nullptr;
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::subpassDepthRef(const uint32_t subpassId, const uint32_t attachment, const VkImageLayout layout, const VkImageAspectFlags aspectMask) {
+	mSubpasses[subpassId].subpassDepthAttachmentRef = VkAttachmentReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, attachment, layout, aspectMask };
+
+	if (mSubpasses[subpassId].depthRefExist)
+		mSubpasses[subpassId].subpassDescription.pDepthStencilAttachment = &mSubpasses[subpassId].subpassDepthAttachmentRef;
+
+	return *this;
+}
+
+VKWNS::RenderPass& VKWNS::RenderPass::create() {
+	assert(mCorePointer != nullptr);
+
+	renderPassInfo.attachmentCount = static_cast<uint32_t>(mAttachments.size());
+	renderPassInfo.pAttachments = &mAttachments[0];
+
+	std::vector<VkSubpassDependency2> dependencies;
+	std::vector<VkSubpassDescription2> subpasses;
+
+	for (Subpass& subpass : mSubpasses) {
+		std::copy(subpass.subpassDependencies.begin(), subpass.subpassDependencies.end(), std::back_inserter(dependencies));
+		subpasses.emplace_back(subpass.subpassDescription);
+	}
+
+	renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+	renderPassInfo.pDependencies = &dependencies[0];
+	renderPassInfo.subpassCount = static_cast<uint32_t>(subpasses.size());
+	renderPassInfo.pSubpasses = &subpasses[0];
+
+	assert(vkwAssert(vkCreateRenderPass2(mCorePointer->getDevice(), &renderPassInfo, nullptr, &mRenderPass)) == VK_SUCCESS);
+
+	// Clean out of scope pointers
+	renderPassInfo.pDependencies = nullptr;
+	renderPassInfo.pSubpasses = nullptr;
+
+	return *this;
+}
+
+void VKWNS::RenderPass::destroy() {
+	if (mRenderPass != VK_NULL_HANDLE)
+		vkDestroyRenderPass(mCorePointer->getDevice(), mRenderPass, nullptr);
+
+	mRenderPass = VK_NULL_HANDLE;
 }
 
 #pragma endregion

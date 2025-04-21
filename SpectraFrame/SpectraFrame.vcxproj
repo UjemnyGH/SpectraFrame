@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -157,17 +157,50 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Core\sfHash.cpp" />
+    <ClCompile Include="src\Core\sfPLYLoader.cpp" />
     <ClCompile Include="src\Core\sfVkCommon.cpp" />
     <ClCompile Include="src\Core\sfWindow.cpp" />
     <ClCompile Include="src\Core\vulkanWrap.cpp" />
+    <ClCompile Include="src\Framegraph\sfDescriptorManager.cpp" />
+    <ClCompile Include="src\Framegraph\sfRenderPassManager.cpp" />
+    <ClCompile Include="src\Framegraph\sfPipelineManager.cpp" />
+    <ClCompile Include="src\Framegraph\sfRenderSubpassManager.cpp" />
+    <ClCompile Include="src\Math\sfMathFunctions.cpp" />
+    <ClCompile Include="src\Math\sfMatrix.cpp" />
+    <ClCompile Include="src\Math\sfVector.cpp" />
+    <ClCompile Include="src\testScene.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Framegraph\sfFramegraph.cpp" />
+    <ClCompile Include="src\Framegraph\sfFramegraphImageManager.cpp" />
+    <ClCompile Include="src\Framegraph\sfResourceManager.cpp" />
+    <ClCompile Include="src\Scene\sfScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Math\sfMatrix.h" />
+    <ClInclude Include="src\Core\sfHash.h" />
+    <ClInclude Include="src\Core\sfPLYLoader.h" />
+    <ClInclude Include="src\Framegraph\sfDescriptorManager.h" />
+    <ClInclude Include="src\Framegraph\sfFramegraph.h" />
     <ClInclude Include="src\Core\sfLogger.h" />
     <ClInclude Include="src\Core\sfVkCommon.h" />
     <ClInclude Include="src\Core\sfWindow.h" />
     <ClInclude Include="src\Core\vulkanWrap.h" />
-    <ClInclude Include="src\Renderer\sfRenderer.h" />
+    <ClInclude Include="src\Framegraph\sfFramegraphImageManager.h" />
+    <ClInclude Include="src\Framegraph\sfRenderPassManager.h" />
+    <ClInclude Include="src\Framegraph\sfPipelineManager.h" />
+    <ClInclude Include="src\Framegraph\sfRenderSubpassManager.h" />
+    <ClInclude Include="src\Framegraph\sfResourceManager.h" />
+    <ClInclude Include="src\Math\sfMathFunctions.h" />
+    <ClInclude Include="src\Math\sfVector.h" />
+    <ClInclude Include="src\Scene\sfRenderMesh.h" />
+    <ClInclude Include="src\Scene\sfScene.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="g_buffer.frag" />
+    <None Include="g_buffer.vert" />
+    <None Include="light.frag" />
+    <None Include="light.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

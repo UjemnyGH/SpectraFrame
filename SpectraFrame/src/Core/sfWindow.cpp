@@ -1,3 +1,6 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include "sfWindow.h"
 #include "sfLogger.h"
 
@@ -20,7 +23,7 @@ sf::Window::Window() {
 	mHeight = 0;
 
 	if (sWindowInstancePtr) {
-		SF_CLOG("ERR: Cannot create another sf::Window instance!")
+		SF_CLOG("ERR: Cannot create another sf::Window instance!");
 		
 		abort();
 	}
@@ -46,7 +49,7 @@ sf::Window& sf::Window::create(const char* title, const int width, const int hei
 	mWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
 	if (!mWindow)
-		SF_CLOG("ERR: Cannot create window!")
+		SF_CLOG("ERR: Cannot create window!");
 
 	glfwSetWindowUserPointer(mWindow, this);
 
@@ -54,7 +57,7 @@ sf::Window& sf::Window::create(const char* title, const int width, const int hei
 	mHeight = height;
 
 	mVulkan
-		// Support for dynamic rendering
+		// Support for dynamic rendering, CANNOT BE LOWER THAN 1.3 TO GUARANTEE EXISTANCE OF RENDER PASS 2 AND SYNCHRONIZATION 2
 		.apiVersion(VK_API_VERSION_1_3)
 		.applicationName(title)
 		.engineName("SpectraFrame")
@@ -131,11 +134,11 @@ bool sf::Window::isResized() {
 	return mWindowResized;
 }
 
-int sf::Window::getWidth() {
+uint32_t sf::Window::getWidth() {
 	return mWidth;
 }
 
-int sf::Window::getHeight() {
+uint32_t sf::Window::getHeight() {
 	return mHeight;
 }
 
@@ -144,6 +147,8 @@ vkw::VkWrapCore& sf::Window::getVulkanCore() {
 }
 
 void sf::Window::destroy() {
+	mVulkan.waitForDeviceIdle();
+
 	end();
 
 	mVulkan.destroy();

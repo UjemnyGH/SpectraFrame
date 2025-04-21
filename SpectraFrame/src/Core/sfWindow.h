@@ -63,9 +63,9 @@ namespace sf {
 
 		bool isResized();
 
-		int getWidth();
+		uint32_t getWidth();
 
-		int getHeight();
+		uint32_t getHeight();
 
 		vkw::VkWrapCore& getVulkanCore();
 
