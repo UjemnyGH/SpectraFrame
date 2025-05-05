@@ -5,9 +5,10 @@ SpectraFrame is an graphics engine designed with [Vulkan API](https://www.vulkan
 That`s it, I wanted to make graphics engine based on Vulkan API to learn it.
 
 ### Libraries
-- [Vulkan](https://www.vulkan.org) as core of entire engine rendering
-- [GLFW](https://www.glfw.org) for handling window and inputs 
+- [Vulkan](https://www.vulkan.org) as core of entire engine rendering (Not provided in vendor folder)
+- [GLFW](https://www.glfw.org) for handling window and inputs (Not provided in vendor folder)
 - [stb](https://github.com/nothings/stb) for loading images from virtually any image file format
+- [OpenAL](https://www.openal.org) for 3 dimmensional audio (Not provided in vendor folder)
 
 ### About Vulkan API wrapper
 As you seen there is nothing more for [Vulkan API](https://www.vulkan.org) than sole, clear  [Khronos Vulkan API](https://www.vulkan.org) library taken from [LunarG](https://vulkan.lunarg.com).

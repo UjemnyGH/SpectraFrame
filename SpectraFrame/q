@@ -1,0 +1,31 @@
+set number
+set tabstop=2
+set shiftwidth=2
+set expandtab
+
+color desert
+
+call plug#begin()
+
+Plug 'rebelot/terminal.nvim'
+Plug 'neoclide/coc.nvim', { 'branch': 'release' }
+Plug 'romgrk/barbar.nvim'
+Plug 'nvim-tree/nvim-web-devicons'
+Plug 'lewis6991/gitsigns.nvim'
+Plug 'nvim-neo-tree/neo-tree.nvim'
+
+call plug#end()
+
+inoremap <silent><expr> <TAB>
+  \ coc#visible() ? coc#pum#next(1) :
+  \ CheckBackspace() ? "\<TAB>" :
+  \ coc#refresh()
+inoremap <expr><S-TAB> coc#pum#visible() ? coc#pum#prev(1) : "\<C-h>"
+
+inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
+  \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+
+function! CheckBackspace() abort
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1] =~# '\s'
+endfunction

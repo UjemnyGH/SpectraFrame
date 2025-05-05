@@ -1,0 +1,44 @@
+set number
+set tabstop=2
+set shiftwidth=2
+set expandtab
+
+set signcolumn=yes
+
+color desert
+
+call plug#begin()
+
+Plug 'rebelot/terminal.nvim'
+Plug 'neoclide/coc.nvim', { 'branch': 'release' }
+Plug 'romgrk/barbar.nvim'
+Plug 'nvim-tree/nvim-web-devicons'
+Plug 'lewis6991/gitsigns.nvim'
+Plug 'nvim-neo-tree/neo-tree.nvim'
+Plug 'Zeioth/dooku.nvim'
+
+call plug#end()
+
+inoremap <silent><expr> <TAB> coc#pum#visible() ? coc#pum#confirm()
+  \: "\<C-g>u\<TAB>\<c-r>=coc#on_enter()\<CR>"
+
+function! CheckBackspace() abort
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1] =~# '\s'
+endfunction
+
+if has('nvim')
+  inoremap <silent><expr> <c-space> coc#refresh()
+else
+  inoremap <silent><expr> <c-@> coc#refresh()
+endif
+
+nmap <silent><nowait> [g <Plug>(coc-diagnostic-prev)
+nmap <silent><nowait> ]g <Plug>(coc-diagnostic-next)
+
+nmap <silent><nowait> gd <Plug>(coc-definition)
+nmap <silent><nowait> gy <Plug>(coc-type-definition)
+nmap <silent><nowait> gi <Plug>(coc-implementation)
+nmap <silent><nowait> gr <Plug>(coc-references)
+
+
