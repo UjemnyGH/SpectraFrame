@@ -10,7 +10,7 @@
 #define GLFW_EXPOSE_NATIVE_X11
 #endif
 
-#include <vulkan/vulkan.hpp>
+#include "sfVkCore.h"
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
@@ -22,10 +22,6 @@ namespace sf {
 
 		vk::SurfaceKHR mWindowSurface;
 
-		vk::Instance mInstance;
-		vk::PhysicalDevice mPhysicalDevice;
-		vk::Device mDevice;
-
 		bool mWindowResized;
 		int mWidth;
 		int mHeight;
@@ -36,8 +32,6 @@ namespace sf {
 
 	public:
 		static Window* sWindowInstancePtr;
-
-		static vkw::VkWrapCore& getVk();
 		
 		Window();
 

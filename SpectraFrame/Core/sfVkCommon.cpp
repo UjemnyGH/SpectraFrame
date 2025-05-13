@@ -3,24 +3,33 @@
 #include <vulkan/vulkan.hpp>
 
 void sf::commandBufferOneTimeBegin(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool) {
-	commandBuffer
-		.setCorePtr(&Window::getvk::())
-		.beginFlag(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)
-		.allocate(commandPool.getCommandPool())
-		.begin();
+  vk::CommandBufferAllocateInfo allocInfo;
+  allocInfo
+    .setCommandBufferCount(1)
+    .setCommandPool(commandPool);
+
+  Vulkan::device().allocateCommandBuffers(allocInfo, &commandBuffer);
+
+  vk::CommandBufferBeginInfo beginInfo;
+  beginInfo
+    .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+  commandBuffer.begin(beginInfo);
 }
 
-void sf::commandBufferOneTimeEnd(vk::CommandBuffer& commandBuffer, const vk::Queue submitQueue) {
+void sf::commandBufferOneTimeEnd(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool, const vk::Queue submitQueue) {
 	commandBuffer.end();
 
-	vk::Submit submitCommandBuffer;
+	vk::SubmitInfo submitCommandBuffer;
 	submitCommandBuffer
-		.addCommandBuffer(commandBuffer.getCommandBuffer())
-		.submit(submitQueue, VK_NULL_HANDLE);
+		.setCommandBufferCount(1)
+    .setPCommandBuffers(&commandBuffer);
+
+  Vulkan::graphicsQueue().submit(1, &submitCommandBuffer, (vk::Fence)nullptr);
 
 	vkQueueWaitIdle(submitQueue);
 
-	commandBuffer.destroy();
+  Vulkan::device().freeCommandBuffers(commandPool, 1, &commandBuffer);
 }
 
 sf::CopyBuffer& sf::CopyBuffer::setCommandBuffer(vk::CommandBuffer& commandBuffer) {
@@ -35,7 +44,7 @@ sf::CopyBuffer& sf::CopyBuffer::copyBufferToBuffer(vk::Buffer& src, vk::Buffer& 
 	bufferCopyRegion.srcOffset = 0;
 	bufferCopyRegion.size = srcDataSize;
 
-	pCommandBuffer->cmdCopyBuffer(src.getBuffer(), dst.getBuffer(), 1, &bufferCopyRegion);
+	pCommandBuffer->copyBuffer(src, dst, 1, &bufferCopyRegion);
 
 	return *this;
 }
@@ -45,24 +54,24 @@ sf::CopyBuffer& sf::CopyBuffer::copyBufferToImage(vk::Buffer& src, vk::Image& ds
 	bufferImageCopy.bufferOffset = 0;
 	bufferImageCopy.bufferRowLength = 0;
 	bufferImageCopy.bufferImageHeight = 0;
-	bufferImageCopy.imageOffset = { 0, 0, 0 };
+	bufferImageCopy.imageOffset = (vk::Offset3D) { 0, 0, 0 };
 	bufferImageCopy.imageExtent = imageExtent;
 	bufferImageCopy.imageSubresource = subresources;
 
-	pCommandBuffer->cmdCopyBufferToImage(src.getBuffer(), dst.getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferImageCopy);
+  pCommandBuffer->copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, 1, &bufferImageCopy);
 
 	return *this;
 }
 
 sf::CopyBuffer& sf::CopyBuffer::copyImageToImage(vk::Image& src, vk::Image& dst, const vk::Extent3D imageExtent, const vk::ImageLayout imageLayout, const vk::ImageSubresourceLayers subresources) {
 	vk::ImageCopy imageCopy{};
-	imageCopy.srcOffset = { 0, 0, 0 };
-	imageCopy.dstOffset = { 0, 0, 0 };
+	imageCopy.srcOffset = (vk::Offset3D) { 0, 0, 0 };
+	imageCopy.dstOffset = (vk::Offset3D) { 0, 0, 0 };
 	imageCopy.extent = imageExtent;
 	imageCopy.srcSubresource = subresources;
 	imageCopy.dstSubresource = subresources;
 	
-	pCommandBuffer->cmdCopyImage(src.getImage(), imageLayout, dst.getImage(), imageLayout, 1, &imageCopy);
+	pCommandBuffer->copyImage(src, imageLayout, dst, imageLayout, 1, &imageCopy);
 
 	return *this;
 }
@@ -99,9 +108,9 @@ sf::TransitionImage& sf::TransitionImage::subresources(const vk::ImageSubresourc
 }
 
 sf::TransitionImage& sf::TransitionImage::transition(vk::Image& image, const vk::PipelineStageFlags srcStageMask, const vk::PipelineStageFlags dstStageMask) {
-	imageMemoryBarrier.image = image.getImage();
-
-	pCommandBuffer->cmdPipelineBarrier(srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+	imageMemoryBarrier.image = image;
+  
+	pCommandBuffer->pipelineBarrier(srcStageMask, dstStageMask, (vk::DependencyFlagBits) 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 
 	return *this;
 }
@@ -155,7 +164,7 @@ sf::VertexBuffer& sf::VertexBuffer::update(vk::CommandPool& commandPool, const v
 		.setCommandBuffer(oneTimeCopy)
 		.copyBufferToBuffer(mBuffer, copyStageBuffer, mBufferSize);
 
-	commandBufferOneTimeEnd(oneTimeCopy, submitQueue);
+	commandBufferOneTimeEnd(oneTimeCopy, commandPool, submitQueue);
 
 	copyStageBuffer.destroy();
 
@@ -172,8 +181,8 @@ sf::UniformBuffer::~UniformBuffer() {
 	destroy();
 }
 
-vk::DescriptorType sf::UniformBuffer::getvk::Type() {
-	return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+vk::DescriptorType sf::UniformBuffer::getVkType() {
+	return vk::DescriptorType::eUniformBuffer;
 }
 
 vk::Buffer& sf::UniformBuffer::getBuffer() {

@@ -7,7 +7,7 @@
 namespace sf {
 	void commandBufferOneTimeBegin(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool);
 
-	void commandBufferOneTimeEnd(vk::CommandBuffer& commandBuffer, const vk::Queue submitQueue);
+	void commandBufferOneTimeEnd(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool, const vk::Queue submitQueue);
 
 	struct CopyBuffer {
 		vk::CommandBuffer* pCommandBuffer;

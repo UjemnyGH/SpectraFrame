@@ -52,12 +52,14 @@ sf::Window& sf::Window::create(const char* title, const int width, const int hei
 	mWidth = width;
 	mHeight = height;
 
-	mVulkan
+  Vulkan::getVk().applicationInfo
 		// Support for dynamic rendering, CANNOT BE LOWER THAN 1.3 TO GUARANTEE EXISTANCE OF RENDER PASS 2 AND SYNCHRONIZATION 2
-		.apiVersion(VK_API_VERSION_1_3)
-		.applicationName(title)
-		.engineName("SpectraFrame")
-		.engineVersion(VK_MAKE_API_VERSION(0, 0, 0, 1))
+		.setApiVersion(VK_API_VERSION_1_3)
+		.setPApplicationName(title)
+		.setPEngineName("SpectraFrame")
+		.setEngineVersion(VK_MAKE_API_VERSION(0, 0, 0, 1));
+
+  Vulkan::getVk()
 #ifdef _WIN32
 		.graphicsRequiredExtensions(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__linux)
@@ -65,17 +67,15 @@ sf::Window& sf::Window::create(const char* title, const int width, const int hei
 #endif
 
 	if (mCreateVulkanDebugger)
-		mVulkan.enableDebugMessenger();
+		Vulkan::getVk().enableDebugMessenger();
 
-	mVulkan.createInstance();
+  Vulkan::getVk().createInstance();
 
-	glfwCreateWindowSurface(mVulkan.getInstance(), mWindow, nullptr, &mWindowSurface);
+	glfwCreateWindowSurface(Vulkan::instance(), mWindow, nullptr, (VkSurfaceKHR*)&mWindowSurface);
 
-	mVulkan
+  Vulkan::getVk()
 		.setSurface(mWindowSurface)
-		.pickGPU()
-		.selectPresentMode(VK_PRESENT_MODE_FIFO_KHR)
-		.selectSurfaceFormat({ VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+    .pickGPU()
 		.createDevice();
 
 	start();
@@ -140,16 +140,12 @@ uint32_t sf::Window::getHeight() {
 	return mHeight;
 }
 
-vkw::VkWrapCore& sf::Window::getVulkanCore() {
-	return mVulkan;
-}
-
 void sf::Window::destroy() {
-	mVulkan.waitForDeviceIdle();
+  Vulkan::waitForIdle();
 
 	end();
 
-	mVulkan.destroy();
+  Vulkan::getVk().destroy();
 
 	glfwDestroyWindow(mWindow);
 	glfwTerminate();

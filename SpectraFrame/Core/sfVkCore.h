@@ -43,13 +43,17 @@ namespace sf {
 
 		vk::Device mDevice;
 
-		static vk::Bool32 _debugUtilsMessengerCallback();
+		static vk::Bool32 _debugUtilsMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData);
 
 		bool _checkInstanceLayersSupport();
 
 		void _getAvailableSurfaceData();
 
 		vk::Format _findSupportedFormat(const std::vector<vk::Format>& desiredFormats, const vk::ImageTiling tiling, const vk::FormatFeatureFlags features);
+
+    bool _checkPhysicalDeviceSwapchainSupport(vk::PhysicalDevice& physicalDevice, const std::vector<vk::ExtensionProperties>& deviceProperties);
+
+    uint32_t _scorePhysicalDevice(vk::PhysicalDevice& physicalDevice);
 
 	public:
 		vk::ApplicationInfo applicationInfo;
@@ -286,41 +290,6 @@ namespace sf {
 		// Autosetup functions
 
 		/**
-		 * @brief Changes current Vulkan API version from 1.0 to whatever user desires
-		 * @param apiVersion 
-		 * @return 
-		 */
-		Vulkan& apiVersion(const uint32_t apiVersion);
-
-		/**
-		 * @brief Changes application name from default name
-		 * @param appName 
-		 * @return 
-		 */
-		Vulkan& applicationName(const char* appName);
-
-		/**
-		 * @brief Changers engine name from default engine name
-		 * @param engineName 
-		 * @return 
-		 */
-		Vulkan& engineName(const char* engineName);
-
-		/**
-		 * @brief  Changes application version from 1.0.0 to whatever is specified
-		 * @param appVersion 
-		 * @return 
-		 */
-		Vulkan& applicationVersion(const uint32_t appVersion);
-
-		/**
-		 * @brief Changes engine version from 1.0.0 to whatever is specified
-		 * @param engineVersion 
-		 * @return 
-		 */
-		Vulkan& engineVersion(const uint32_t engineVersion);
-
-		/**
 		 * @brief Enables basic validation layer debug messaging
 		 * @return 
 		 */
@@ -340,7 +309,7 @@ namespace sf {
 		 * @param desiredFormat 
 		 * @return 
 		 */
-		Vulkan& selectSurfaceFormat(const VkSurfaceFormatKHR desiredFormat);
+		Vulkan& selectSurfaceFormat(const vk::SurfaceFormatKHR desiredFormat);
 
 		/**
 		 * @brief Selects desired present mode if possible, must be used after pickGPU() method, default desired selection is VK_PRESENT_MODE_FIFO_KHR
@@ -348,7 +317,7 @@ namespace sf {
 		 * @param desiredPresentMode 
 		 * @return 
 		 */
-		Vulkan& selectPresentMode(const VkPresentModeKHR desiredPresentMode);
+		Vulkan& selectPresentMode(const vk::PresentModeKHR desiredPresentMode);
 
 		/**
 		 * @brief Refreshes surface capabilities, available formats and present modes (calls _getAvailableSurfaceData())
