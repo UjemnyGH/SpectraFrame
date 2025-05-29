@@ -6,14 +6,14 @@
 #include <vector>
 
 namespace sf {
-	struct RenderMesh {
-		std::vector<float> vertices;
-		std::vector<float> normal;
-		std::vector<float> color;
-		std::vector<float> textureCoordinates;
-		
-		float textureId;
-	};
+  struct RenderMesh {
+    std::vector<float> vertices;
+    std::vector<float> normal;
+    std::vector<float> color;
+    std::vector<float> textureCoordinates;
+    
+    float textureId;
+  };
 }
 
 #endif

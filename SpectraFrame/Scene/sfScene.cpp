@@ -6,108 +6,108 @@ std::unordered_map<std::string, sf::Scene*> sf::Scene::sAllScenes = {};
 sf::Scene* sf::Scene::sCurrentScene = nullptr;
 
 sf::Scene::Scene(const std::string& sceneName, bool startingScene) {
-	mStartingScene = startingScene;
-	mSceneName = sceneName;
-	mSceneKeptAlive = false;
-	if (sAllScenePointers == nullptr) {
-		sAllScenePointers = new std::vector<sf::Scene*>();
-	}
+  mStartingScene = startingScene;
+  mSceneName = sceneName;
+  mSceneKeptAlive = false;
+  if (sAllScenePointers == nullptr) {
+    sAllScenePointers = new std::vector<sf::Scene*>();
+  }
 
-	sAllScenePointers->push_back(this);
+  sAllScenePointers->push_back(this);
 }
 
 void sf::Scene::_makeSceneUsable() {
-	sAllScenes[mSceneName] = this;
+  sAllScenes[mSceneName] = this;
 }
 
 const std::string& sf::Scene::getSceneName() {
-	return mSceneName;
+  return mSceneName;
 }
 
 bool sf::Scene::isKeptAlive() {
-	return mSceneKeptAlive;
+  return mSceneKeptAlive;
 }
 
 bool sf::Scene::isStarting() {
-	return mStartingScene;
+  return mStartingScene;
 }
 
 void sf::Scene::keepAlive(bool keepSceenAlive) {
-	mSceneKeptAlive = keepSceenAlive;
+  mSceneKeptAlive = keepSceenAlive;
 }
 
 bool sf::Scene::changeScene(const std::string& sceneName, bool keepLastAlive) {
-	Scene* lastScene = sCurrentScene;
+  Scene* lastScene = sCurrentScene;
 
-	sCurrentScene = sAllScenes[sceneName];
+  sCurrentScene = sAllScenes[sceneName];
 
-	if (!hasSceneSelected()) {
-		SF_CLOG("ERR: Scene \"" << sceneName << "\" not found!");
+  if (!hasSceneSelected()) {
+    SF_CLOG("ERR: Scene \"" << sceneName << "\" not found!");
 
-		sCurrentScene = lastScene;
+    sCurrentScene = lastScene;
 
-		return false;
-	}
+    return false;
+  }
 
-	if (lastScene) {
-		bool lastKeptAlive = true;
+  if (lastScene) {
+    bool lastKeptAlive = true;
 
-		// We don`t want to have zombie scenes taking up memeory on ram and vram, unless user has choose to
-		if ((!lastScene->isKeptAlive() || keepLastAlive)) {
-			lastScene->end();
+    // We don`t want to have zombie scenes taking up memeory on ram and vram, unless user has choose to
+    if ((!lastScene->isKeptAlive() || keepLastAlive)) {
+      lastScene->end();
 
-			lastKeptAlive = false;
-		}
+      lastKeptAlive = false;
+    }
 
-		lastScene->keepAlive(lastKeptAlive);
-	}
+    lastScene->keepAlive(lastKeptAlive);
+  }
 
-	if(!sCurrentScene->isKeptAlive())
-		sCurrentScene->start();
+  if(!sCurrentScene->isKeptAlive())
+    sCurrentScene->start();
 
-	return true;
+  return true;
 }
 
 void sf::Scene::updateCurrentScene() {
-	if (hasSceneSelected()) {
-		sCurrentScene->update();
-	}
+  if (hasSceneSelected()) {
+    sCurrentScene->update();
+  }
 }
 
 void sf::Scene::lateUpdateCurrentScene() {
-	if (hasSceneSelected())
-		sCurrentScene->lateUpdate();
+  if (hasSceneSelected())
+    sCurrentScene->lateUpdate();
 }
 
 bool sf::Scene::hasSceneSelected() {
-	return sCurrentScene != nullptr;
+  return sCurrentScene != nullptr;
 }
 
 bool sf::Scene::hasAvailableScenes() {
-	return !sAllScenes.empty();
+  return !sAllScenes.empty();
 }
 
 void sf::Scene::endCurrentScene() {
-	if (hasSceneSelected()) {
-		sCurrentScene->end();
-	}
+  if (hasSceneSelected()) {
+    sCurrentScene->end();
+  }
 
-	sCurrentScene = nullptr;
+  sCurrentScene = nullptr;
 }
 
 void sf::Scene::_makeAllScenesUsable() {
-	SF_CDEBUG("All added scenes count: " << sAllScenePointers->size());
+  SF_CDEBUG("All added scenes count: " << sAllScenePointers->size());
 
-	for (Scene* scene : *sAllScenePointers) {
-		scene->_makeSceneUsable();
+  for (Scene* scene : *sAllScenePointers) {
+    scene->_makeSceneUsable();
 
-		SF_CDEBUG("Scene \"" << scene->getSceneName() << "\", starting: " << (scene->isStarting() ? "true" : "false") << " @ " << scene);
+    SF_CDEBUG("Scene \"" << scene->getSceneName() << "\", starting: " << (scene->isStarting() ? "true" : "false") << " @ " << scene);
 
-		if (scene->isStarting())
-			sf::Scene::changeScene(scene->getSceneName());
-	}
+    if (scene->isStarting())
+      sf::Scene::changeScene(scene->getSceneName());
+  }
 
-	sAllScenePointers->clear();
+  sAllScenePointers->clear();
 
-	delete sAllScenePointers;
+  delete sAllScenePointers;
 }

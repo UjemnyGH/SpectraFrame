@@ -5,9 +5,9 @@
 #include <iostream>
 
 namespace sf {
-	/**
-	 * @brief Console log
-	 */
+  /**
+   * @brief Console log
+   */
 #define SF_CLOG(msg) std::cout << "[SF_LOG]: " << __FILE__ << ":" << __LINE__ << " > " << msg << std::endl
 
 #ifdef NDEBUG

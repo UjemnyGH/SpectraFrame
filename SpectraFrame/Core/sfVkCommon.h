@@ -5,324 +5,210 @@
 #include <vulkan/vulkan.hpp>
 
 namespace sf {
-	void commandBufferOneTimeBegin(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool);
+  void commandBufferOneTimeBegin(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool);
 
-	void commandBufferOneTimeEnd(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool, const vk::Queue submitQueue);
+  void commandBufferOneTimeEnd(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool, const vk::Queue submitQueue);
 
-	struct CopyBuffer {
-		vk::CommandBuffer* pCommandBuffer;
+  uint32_t findImageMemoryType(vk::DeviceSize& rAllocationSize, vk::Image image, const vk::MemoryPropertyFlags properties);
 
-		CopyBuffer& setCommandBuffer(vk::CommandBuffer& commandBuffer);
+  uint32_t findBufferMemoryType(vk::DeviceSize& rAllocationSize, vk::Buffer buffer, const vk::MemoryPropertyFlags properties);
+  
+  //
+  // Below are functions wrapping all vulkan handles that are not worth to put inside separate class,
+  // they just have to few parameters to bother wrapping them in classes, destroying this objects works
+  // by calling sf::Vulkan::device().destroyXHandle(<vk::XHandle name>, nullptr)
+  //
+  
+  /**
+   * Simple wrap around creating fence
+   */
+  void createVkFence(vk::Fence& rFence, bool signaled = true);
 
-		CopyBuffer& copyBufferToBuffer(vk::Buffer& src, vk::Buffer& dst, const vk::DeviceSize srcDataSize);
+  /**
+   * Simple wrap around creating semaphore
+   */
+  void createVkSemaphore(vk::Semaphore& rSemaphore);
 
-		CopyBuffer& copyBufferToImage(vk::Buffer& src, vk::Image& dst, const vk::Extent3D imageExtent, const vk::ImageSubresourceLayers subresources);
+  void createVkCommandPool(vk::CommandPool& rCommandPool, const uint32_t queueIndex, const bool resetBuffers = true, const bool transient = true);
 
-		/**
-		 * @brief Images need to have same extent, layout and subresources to copy succesfully, otherwise use full version frtom command buffer
-		 * @param src 
-		 * @param dst 
-		 * @param imageExtent 
-		 * @param imageLayout 
-		 * @param subresources 
-		 * @return 
-		 */
-		CopyBuffer& copyImageToImage(vk::Image& src, vk::Image& dst, const vk::Extent3D imageExtent, const vk::ImageLayout imageLayout, const vk::ImageSubresourceLayers subresources);
-	};
+  void allocateCommandBuffer(vk::CommandBuffer& rCommandBuffer, vk::CommandPool commandPool, const bool primary = true);
 
-	struct TransitionImage {
-		vk::CommandBuffer* pCommandBuffer;
-		vk::ImageMemoryBarrier imageMemoryBarrier;
+  void createVkRenderPassImage(vk::Image& rImage, vk::DeviceMemory& rMemory, const vk::Extent3D imageExtent, const vk::Format imageFormat);
 
-		TransitionImage();
+  void createVkImageView(vk::ImageView& rImageView, vk::Image image, const vk::Format format, const vk::ImageViewType viewType, const bool depthImageView = false);
 
-		TransitionImage& setCommandBuffer(vk::CommandBuffer& commandBuffer);
+  struct CopyBuffer {
+    vk::CommandBuffer* pCommandBuffer;
 
-		TransitionImage& layouts(const vk::ImageLayout oldL, const vk::ImageLayout newL);
+    CopyBuffer& setCommandBuffer(vk::CommandBuffer& commandBuffer);
 
-		TransitionImage& accessMask(const vk::AccessFlags srcMask, const vk::AccessFlags dstMask);
+    CopyBuffer& copyBufferToBuffer(vk::Buffer& src, vk::Buffer& dst, const vk::DeviceSize srcDataSize);
 
-		TransitionImage& subresources(const vk::ImageSubresourceRange subresources);
+    CopyBuffer& copyBufferToImage(vk::Buffer& src, vk::Image& dst, const vk::Extent3D imageExtent, const vk::ImageSubresourceLayers subresources);
 
-		TransitionImage& transition(vk::Image& image, const vk::PipelineStageFlags srcStageMask, const vk::PipelineStageFlags dstStageMask);
-	};
+    /**
+     * @brief Images need to have same extent, layout and subresources to copy succesfully, otherwise use full version frtom command buffer
+     * @param src 
+     * @param dst 
+     * @param imageExtent 
+     * @param imageLayout 
+     * @param subresources 
+     * @return 
+     */
+    CopyBuffer& copyImageToImage(vk::Image& src, vk::Image& dst, const vk::Extent3D imageExtent, const vk::ImageLayout imageLayout, const vk::ImageSubresourceLayers subresources);
+  };
 
-	class VertexBuffer {
-	private:
-		vk::Buffer mBuffer;
-		size_t mBufferSize;
+  struct TransitionImage {
+    vk::CommandBuffer* pCommandBuffer;
+    vk::ImageMemoryBarrier imageMemoryBarrier;
 
-	public:
-		~VertexBuffer();
+    TransitionImage();
 
-		vk::Buffer& getBuffer();
+    TransitionImage& setCommandBuffer(vk::CommandBuffer& commandBuffer);
 
-		size_t getBufferSize();
+    TransitionImage& layouts(const vk::ImageLayout oldL, const vk::ImageLayout newL);
 
-		/**
-		 * @brief If vertex buffer is not created or buffer sizes does not match provided data then destroys old buffer (if exist) and creates new updated one
-		 * @param commandPool 
-		 * @param submitQueue 
-		 * @param data 
-		 * @return 
-		 */
-		template <typename T>
-		VertexBuffer& update(vk::CommandPool& commandPool, const vk::Queue submitQueue, const std::vector<T>& data);
+    TransitionImage& accessMask(const vk::AccessFlags srcMask, const vk::AccessFlags dstMask);
 
-		void destroy();
-	};
+    TransitionImage& subresources(const vk::ImageSubresourceRange subresources);
 
-	class UniformBuffer {
-	private:
-		vk::Buffer mBuffer;
-		size_t mBufferSize;
+    TransitionImage& transition(vk::Image& image, const vk::PipelineStageFlags srcStageMask, const vk::PipelineStageFlags dstStageMask);
+  };
 
-	public:
-		~UniformBuffer();
+  class VertexBuffer {
+  private:
+    vk::Buffer mBuffer;
+    vk::DeviceMemory mBufferMemory;
+    size_t mBufferSize;
 
-		static vk::DescriptorType getVkType();
+  public:
+    ~VertexBuffer();
 
-		vk::Buffer& getBuffer();
+    vk::Buffer& getBuffer();
 
-		size_t getBufferSize();
+    size_t getBufferSize();
 
-		UniformBuffer& create(const size_t size);
+    /**
+     * @brief If vertex buffer is not created or buffer sizes does not match provided data then destroys old buffer (if exist) and creates new updated one
+     * @param commandPool 
+     * @param submitQueue 
+     * @param data 
+     * @return 
+     */
+    template <typename T>
+    VertexBuffer& update(vk::CommandPool& commandPool, const vk::Queue submitQueue, const std::vector<T>& data);
 
-		UniformBuffer& map(void** ppDataPlace);
+    void destroy();
+  };
 
-		UniformBuffer& unmap();
+  class UniformBuffer {
+  private:
+    vk::Buffer mBuffer;
+    vk::DeviceMemory mBufferMemory;
+    size_t mBufferSize;
 
-		void destroy();
-	};
+  public:
+    ~UniformBuffer();
 
-	class Sampler {
-	private:
-		vk::Image mImage;
-		vk::ImageView mImageView;
-		vk::Sampler mSampler;
+    vk::Buffer& getBuffer();
 
-		uint32_t mMipmapLevels;
-		vk::Extent3D mImageExtent;
+    size_t getBufferSize();
 
-	public:
-		~Sampler();
+    UniformBuffer& create(const size_t size);
 
-		static vk::DescriptorType getVkType();
+    UniformBuffer& map(void** ppDataPlace);
 
-		vk::Image& getImage();
+    UniformBuffer& unmap();
 
-		vk::ImageView& getImageView();
+    void destroy();
+  };
 
-		vk::Sampler& getSampler();
+  class Sampler {
+  private:
+    vk::Image mImage;
+    vk::DeviceMemory mImageMemory;
+    vk::ImageView mImageView;
+    vk::Sampler mSampler;
 
-		vk::Extent3D getImageExtent();
+    uint32_t mMipmapLevels;
+    vk::Extent3D mImageExtent;
 
-		uint32_t getMipmapLevels();
+  public:
+    ~Sampler();
 
-		Sampler& create(vk::CommandPool& commandPool, const vk::Queue submitQueue, const uint8_t* const pixels, const size_t pixelsSize, const vk::Extent3D extent, const vk::Format imageFormat, const uint32_t mipLevels);
+    vk::Image& getImage();
 
-		void destroy();
-	};
+    vk::ImageView& getImageView();
 
-	class ShaderStorageBuffer {
-	private:
-		vk::Buffer mBuffer;
-		size_t mBufferSize;
+    vk::Sampler& getSampler();
 
-	public:
-		~ShaderStorageBuffer();
+    vk::Extent3D getImageExtent();
 
-		static vk::DescriptorType getVkType();
+    uint32_t getMipmapLevels();
 
-		vk::Buffer& getBuffer();
+    Sampler& create(vk::CommandPool& commandPool, const vk::Queue submitQueue, const uint8_t* const pixels, const size_t pixelsSize, const vk::Extent3D extent, const vk::Format imageFormat, const uint32_t mipLevels);
 
-		uint32_t getBufferSize();
+    void destroy();
+  };
 
-		ShaderStorageBuffer& update(void* pData, const size_t size);
+  class ShaderStorageBuffer {
+  private:
+    vk::Buffer mBuffer;
+  vk::DeviceMemory mBufferMemory;
+    size_t mBufferSize;
 
-		ShaderStorageBuffer& map(void** ppDataPlace);
+  public:
+    ~ShaderStorageBuffer();
 
-		ShaderStorageBuffer& unmap();
+    vk::Buffer& getBuffer();
 
-		void destroy();
-	};
+    uint32_t getBufferSize();
 
-	class Descriptor {
-	private:
-		vk::DescriptorSetLayout mLayout;
-		vk::DescriptorPool mPool;
-		vk::DescriptorSet mSet;
+    ShaderStorageBuffer& update(void* pData, const size_t size);
 
-		std::vector<vk::WriteDescriptorSet> mWriteSets;
+    ShaderStorageBuffer& map(void** ppDataPlace);
 
-		uint32_t mUniformBufferCount;
-		uint32_t mCombinedImageSamplerCount;
-		uint32_t mShaderStorageBufferCount;
+    ShaderStorageBuffer& unmap();
 
-	public:
-		~Descriptor();
+    void destroy();
+  };
 
-		vk::DescriptorPool& getPool();
+  class Shader {
+  private:
+    vk::ShaderModule mShaderModule;
+    vk::ShaderStageFlags mShaderStage;
 
-		vk::DescriptorSet& getSet();
+  public:
+    ~Shader();
 
-		vk::DescriptorSetLayout& getLayout();
+    vk::ShaderModule& getShaderModule();
 
-		const std::vector<vk::WriteDescriptorSet>& getWriteSets();
+    vk::ShaderStageFlags getShaderStage();
 
-		/**
-		 * @brief Gets amount of uniforms added to descriptor with addUniform() method
-		 * @return 
-		 */
-		uint32_t getUniformBufferAmount();
+    Shader& create(const std::vector<uint8_t>& shaderBinary, const vk::ShaderStageFlags shaderStage);
 
-		/**
-		 * @brief Gets amount of combined image samplers added to descriptor with addSampler() method
-		 * @return 
-		 */
-		uint32_t getCombinedImageSamplerAmount();
+    void destroy();
+  };
 
-		/**
-		 * @brief Gets amount of shader storage buffers added to descriptor with addShaderStorage() method
-		 * @return 
-		 */
-		uint32_t getShaderStorageBufferAmount();
+  class DepthImage {
+  private:
+    vk::Image mDepthImage;
+    vk::DeviceMemory mDepthImageMemory;
+    vk::ImageView mDepthImageView;
 
-		Descriptor& addUniform(UniformBuffer& uniformBuffer, const uint32_t binding, const vk::ShaderStageFlags shaderStage);
-		
-		Descriptor& addSampler(Sampler& sampler, const uint32_t binding, const vk::ShaderStageFlags shaderStage);
+  public:
+    ~DepthImage();
 
-		Descriptor& addShaderStorage(ShaderStorageBuffer& shaderStorage, const uint32_t binding, const vk::ShaderStageFlags shaderStage);
+    vk::Image& getImage();
 
-		Descriptor& clear();
+    vk::DeviceMemory& getMemory();
 
-		Descriptor& create();
+    vk::ImageView& getView();
 
-		void destroy();
-	};
+    DepthImage& create(const vk::Extent3D extent, vk::CommandPool& pool);
 
-	class SwapchainHandler {
-	private:
-		vk::SwapchainKHR mSwapchain;
-		std::vector<vk::ImageView> mSwapchainImageViews;
-		std::vector<vk::Framebuffer> mSwapchainFramebuffers;
-
-		vk::Image mDepthImage;
-		vk::ImageView mDepthImageView;
-
-		vk::Semaphore mImageAvailable;
-		vk::Semaphore mQueueSubmitFinished;
-		vk::Fence mFlight;
-
-		uint32_t mNextImageIndex;
-
-		bool mSkipFrame;
-
-	public:
-		~SwapchainHandler();
-
-		vk::SwapchainKHR& getSwapchain();
-
-		std::vector<vk::ImageView>& getImageViews();
-
-		std::vector<vk::Framebuffer>& getFramebuffers();
-
-		vk::Image& getDepthImage();
-
-		vk::ImageView& getDepthImageView();
-
-		uint32_t getNextImageIndex();
-
-		bool shouldSkipFrame();
-
-		vk::Semaphore& getImageAvailableSemaphore();
-
-		vk::Semaphore& getQueueSubmitFinishedSemaphore();
-
-		vk::Fence& getFlightFence();
-
-		SwapchainHandler& createSwapchain(vk::CommandPool& commandPool, const vk::Queue submitQueue, const vk::RenderPass renderPass, const vk::Extent2D extent);
-
-		SwapchainHandler& createSyncObejcts();
-
-		SwapchainHandler& aquireNextImage(vk::CommandPool& commandPool, const vk::Queue submitQueue, const vk::RenderPass renderPass, const vk::Extent2D extent);
-
-		SwapchainHandler& presentSwapchain(vk::CommandPool& commandPool, const vk::Queue submitQueue, const vk::RenderPass renderPass, const vk::Extent2D extent);
-
-		void destroy();
-
-		void destroySyncObjects();
-	};
-
-	class Shader {
-	private:
-		vk::ShaderModule mShaderModule;
-		vk::ShaderStageFlags mShaderStage;
-
-	public:
-		~Shader();
-
-		vk::ShaderModule& getShaderModule();
-
-		vk::ShaderStageFlags getShaderStage();
-
-		Shader& create(const std::vector<uint8_t>& shaderBinary, const vk::ShaderStageFlags shaderStage);
-
-		void destroy();
-	};
-
-	class Pipeline : public vk::Pipeline {
-	private:
-		vk::PipelineLayout mPipelineLayout;
-
-	public:
-		~Pipeline();
-
-		vk::PipelineLayout& getPipelineLayout();
-
-		Pipeline& addShader(Shader& shader);
-
-		/**
-		 * @brief Adds binding to pipeline for describing how much data is in single vertex pass
-		 * @param dataSizePerVertex amount of data per vertex in bytes (eg. struct Vertex { vec3 position; vec4 color; }  would be 7 * sizeof(float) = sizeof(Vertex))
-		 * @param binding binding in shader (default = 0)
-		 * @return 
-		 */
-		Pipeline& addDataBinding(const uint32_t dataSizePerVertex, const uint32_t binding = 0);
-
-		/**
-		 * @brief Adds attribute to bound size of data
-		 * @param location location of data in shader
-		 * @param binding binding in shader (default = 0)
-		 * @param format data format taken directly from clear Vulkan API (use for example VK_FORMAT_R32_SFLOAT to pass single float value per vertex)
-		 * @param dataOffset offset to data in all joined data (dont use more than 1 buffer per rendered data for VRAM efficiency)
-		 * @return 
-		 */
-		Pipeline& addDataAttribute(const uint32_t location, const vk::Format format, const uint32_t dataOffset, const uint32_t binding = 0);
-
-		Pipeline& enableDepth(const vk::CompareOp op = vk::CompareOp::eLess, float minDepth = 0.0f, float maxDepth = 1.0f);
-
-		Pipeline& createGraphicsPipeline(const vk::RenderPass renderPass, Descriptor& descriptor);
-
-		void destroyAll();
-	};
-
-	class DepthImage {
-	private:
-		vk::Image mDepthImage;
-		vk::ImageView mDepthImageView;
-
-	public:
-		~DepthImage();
-
-		vk::Image& getImage();
-
-		vk::ImageView& getView();
-
-		DepthImage& create(const vk::Extent3D extent, vk::CommandPool& pool);
-
-		void destroy();
-	};
+    void destroy();
+  };
 }
 
 #endif

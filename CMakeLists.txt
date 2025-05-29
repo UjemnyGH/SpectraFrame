@@ -11,6 +11,30 @@ pkg_search_module(GLFW REQUIRED glfw3)
 find_package(OpenAL REQUIRED)
 find_package(Lua REQUIRED)
 
+if(UNIX AND NOT APPLE)
+  pkg_check_modules(WAYLAND wayland-client)
+  find_package(X11)
+  if(WAYLAND_FOUND)
+    message(STATUS "  Building for linux wayland")
+    add_definitions(
+      -DVK_USE_PLATFORM_WAYLAND_KHR
+      -DGLFW_EXPOSE_NATIVE_WAYLAND
+    )
+  elseif(X11_FOUND)
+    message(STATUS "  Building for linux x11")
+    add_definitions(
+      -DVK_USE_PLATFORM_XLIB_KHR
+      -DGLFW_EXPOSE_NATIVE_X11
+    )
+  endif()
+else()
+  message(STATUS "  Building for windows")
+  add_definitions(
+    -DVK_USE_PLATFORM_WIN32_KHR
+    -DGLFW_EXPOSE_NATIVE_WIN32
+  )
+endif()
+
 add_subdirectory(vendor)
 add_subdirectory(SpectraFrame)
 
@@ -24,7 +48,7 @@ set(ENGINE_MODULES
   SceneMod
   MathMod
   CoreMod
-  FramegraphMod
+  RenderingMod
 )
 
 set(VENDOR_INCLUDE
@@ -42,8 +66,6 @@ set(VENDOR_LIBS
   ${LUA_LIBRARIES}
 )
 
-add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/SpectraFrame/main.cpp)
-
 target_link_libraries(${PROJECT_NAME}
   ${ENGINE_MODULES}
   ${VENDOR_LIBS}  
@@ -53,3 +75,23 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${PROJECT_SOURCE_DIR}/SpectraFrame/*
   ${VENDOR_INCLUDE}
 )
+
+if(UNIX AND NOT APPLE)
+  if(WAYLAND_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+      VK_USE_PLATFORM_WAYLAND_KHR
+      GLFW_EXPOSE_NATIVE_WAYLAND
+    )
+  elseif(X11_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+      VK_USE_PLATFORM_XLIB_KHR
+      GLFW_EXPOSE_NATIVE_X11
+    ) 
+  endif()
+else()
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    VK_USE_PLATFORM_WIN32_KHR
+    GLFW_EXPOSE_NATIVE_WIN32
+  )
+endif()
+

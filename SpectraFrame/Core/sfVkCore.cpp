@@ -7,49 +7,39 @@ std::unique_ptr<sf::Vulkan> sf::Vulkan::sVulkanInstancePtr = std::make_unique<Vu
 vk::Bool32 sf::Vulkan::_debugUtilsMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData) {
   // Just check what message severity is and put message in console
   switch (messageSeverity) {
-	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
-		std::cout << "[VERBOSE] {VK VL}: ";
-		break;
+  case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
+    std::cout << "[VERBOSE] {VK VL";
+    break;
 
-	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
-		std::cout << "[INFO] {VK VL}: ";
-		break;
+  case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
+    std::cout << "[INFO] {VK VL";
+    break;
 
   case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
-		std::cout << "[WARNING] {VK VL}: ";
-		break;
+    std::cout << "[WARNING] {VK VL";
+    break;
 
-	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
-		std::cout << "[ERROR] {VK VL}: ";
-		break;
+  case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
+    std::cout << "[ERROR] {VK VL";
+    break;
 
-	default:
-		std::cout << "[UNKNOWN] {VK VL}: ";
-		break;
-	}
+  default:
+    std::cout << "[UNKNOWN] {VK VL";
+    break;
+  }
 
-  // TODO: Message types
-	/*switch (messageTypes) {
-  case vk::Flags<vk::DebugUtilsMessageTypeFlagBitsEXT>(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral):
-		std::cout << " GENERAL}: ";
-		break;
+  if(messageTypes & vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral)
+    std::cout << " GENERAL";
 
-  case vk::Flags<vk::DebugUtilsMessageTypeFlagBitsEXT>(vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation):
-		std::cout << " VALIDATION}: ";
-		break;
+  if(messageTypes & vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation)
+    std::cout << " VALIDATION";
 
-  case vk::Flags<vk::DebugUtilsMessageTypeFlagBitsEXT>(vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance):
-		std::cout << " PERFORMANCE}: ";
-		break;
+  if(messageTypes & vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
+    std::cout << " PERFORMANCE";
 
-	default:
-		std::cout << " UNKNOWN}: ";
-		break;
-	}*/
+  std::cout << "}: " << pCallbackData->pMessage << std::endl;
 
-	std::cout << pCallbackData->pMessage << std::endl;
-
-	return VK_FALSE;
+  return VK_FALSE;
 }
 
 bool sf::Vulkan::_checkInstanceLayersSupport() {
@@ -58,28 +48,28 @@ bool sf::Vulkan::_checkInstanceLayersSupport() {
   // Get all properties of and instance layer
   vk::enumerateInstanceLayerProperties(&count, nullptr);
 
-	std::vector<vk::LayerProperties> properties(count);
+  std::vector<vk::LayerProperties> properties(count);
   vk::enumerateInstanceLayerProperties(&count, &properties[0]);
 
   // Then check if we have desired layers
-	for (const char* name : mInstanceEnabledLayers) {
-		bool found = false;
+  for (const char* name : mInstanceEnabledLayers) {
+    bool found = false;
 
-		for (const VkLayerProperties layer : properties) {
+    for (const VkLayerProperties layer : properties) {
       // If names match return true
-			if (strcmp(name, layer.layerName) == 0) {
-				found = true;
+      if (strcmp(name, layer.layerName) == 0) {
+        found = true;
 
-				break;
-			}
-		}
+        break;
+      }
+    }
     
     // If names dont match return false
-		if (!found) 
+    if (!found) 
       return false;
-	}
+  }
 
-	return true;
+  return true;
 }
 
 void sf::Vulkan::_getAvailableSurfaceData() {
@@ -109,7 +99,7 @@ vk::Format sf::Vulkan::_findSupportedFormat(const std::vector<vk::Format>& desir
   for(vk::Format format : desiredFormats) {
     // Find desired format properties
     vk::FormatProperties formatProps;
-    mSelectedPhysicalDevice.getFormatProperties(format, *formatProps);
+    mSelectedPhysicalDevice.getFormatProperties(format, &formatProps);
 
     // Select best format
     if(tiling == vk::ImageTiling::eLinear && (formatProps.linearTilingFeatures & features) == features) 
@@ -241,6 +231,10 @@ vk::SurfaceFormatKHR& sf::Vulkan::surfaceFormat() {
   return getVk().getSurfaceFormat();
 }
 
+vk::Format sf::Vulkan::depthFormat() {
+  return getVk().getDepthFormat();
+}
+
 vk::PresentModeKHR& sf::Vulkan::presentMode() {
   return getVk().getPresentMode();
 }
@@ -335,6 +329,10 @@ vk::SurfaceCapabilitiesKHR& sf::Vulkan::getSurfaceCapabilities() {
 
 vk::SurfaceFormatKHR& sf::Vulkan::getSurfaceFormat() {
   return mSelectedSurfaceFormat;
+}
+
+vk::Format sf::Vulkan::getDepthFormat() {
+  return _findSupportedFormat({vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint}, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 }
 
 vk::PresentModeKHR& sf::Vulkan::getPresentMode() {
@@ -485,8 +483,11 @@ sf::Vulkan& sf::Vulkan::createInstance() {
 
   assert(vk::createInstance(&instanceInfo, nullptr, &mInstance) == vk::Result::eSuccess);
 
-  if(mDefaultDebugMessenger)
-    mInstance.createDebugUtilsMessengerEXT(&debugUtilsMessengerInfo, nullptr, &mDebugUtilsMessenger);
+  if(mDefaultDebugMessenger) {
+    PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)mInstance.getProcAddr("vkCreateDebugUtilsMessengerEXT");
+
+    func((VkInstance)mInstance, (VkDebugUtilsMessengerCreateInfoEXT*)&debugUtilsMessengerInfo, nullptr, (VkDebugUtilsMessengerEXT*)&mDebugUtilsMessenger);
+  }
 
   return *this;
 }
@@ -521,7 +522,7 @@ sf::Vulkan& sf::Vulkan::pickGPU() {
   int32_t selectedQueueIndex = 0;
 
   for(const vk::QueueFamilyProperties queueFamilyProperty : selectedAvailableQueueFamilies) {
-    if(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eGraphics) {
+    if(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eGraphics && mTransferQueueIndex != selectedQueueIndex && mComputeQueueIndex != selectedQueueIndex) {
       vk::Bool32 surfaceSupported = vk::True;
 
       if(mSurfacePtr && mCheckSwapchainExtensionSupport) {
@@ -534,10 +535,10 @@ sf::Vulkan& sf::Vulkan::pickGPU() {
         mGraphicsQueueIndex = selectedQueueIndex;
     }
 
-    if(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eCompute)
+    if(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eCompute && mTransferQueueIndex != selectedQueueIndex && mGraphicsQueueIndex != selectedQueueIndex)
       mComputeQueueIndex = selectedQueueIndex;
 
-    if(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eTransfer)
+    if(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eTransfer && mComputeQueueIndex != selectedQueueIndex && mGraphicsQueueIndex != selectedQueueIndex)
       mTransferQueueIndex = selectedQueueIndex;
 
     if(mGraphicsQueueIndex != -1 && mComputeQueueIndex != -1 && mTransferQueueIndex != -1)
@@ -575,7 +576,12 @@ sf::Vulkan& sf::Vulkan::createDevice() {
     .setQueueCount(1)
     .setQueueFamilyIndex(mTransferQueueIndex);
 
+  vk::PhysicalDeviceVulkan13Features vk13Features;
+  vk13Features
+    .setSynchronization2(vk::True);
+
   deviceInfo
+    .setPNext(&vk13Features)
     .setQueueCreateInfoCount(static_cast<uint32_t>(mDeviceQueueInfos.size()))
     .setPQueueCreateInfos(&mDeviceQueueInfos[0])
     .setEnabledExtensionCount(mDeviceEnabledExtensions.empty() ? 0 : static_cast<uint32_t>(mDeviceEnabledExtensions.size()))
@@ -607,8 +613,11 @@ void sf::Vulkan::destroy() {
   if(mSurfacePtr)
     mInstance.destroySurfaceKHR(*mSurfacePtr, nullptr);
 
-  if((VkDebugUtilsMessengerEXT)mDebugUtilsMessenger)
-    mInstance.destroyDebugUtilsMessengerEXT(mDebugUtilsMessenger, nullptr);
+  if((VkDebugUtilsMessengerEXT)mDebugUtilsMessenger) {
+    PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)mInstance.getProcAddr("vkDestroyDebugUtilsMessengerEXT");
+
+    func((VkInstance)mInstance, (VkDebugUtilsMessengerEXT)mDebugUtilsMessenger, nullptr);
+  }
 
   if((VkInstance)mInstance)
     mInstance.destroy(nullptr);

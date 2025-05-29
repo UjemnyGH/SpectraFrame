@@ -4,7 +4,5 @@ add_subdirectory(Rendering)
 add_subdirectory(Math)
 add_subdirectory(Scene)
 
-add_executable(${PROJECT_NAME} 
-  main.cpp
-  testScene.cpp
-)
+add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} testScene.cpp)
