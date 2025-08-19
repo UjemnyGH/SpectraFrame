@@ -62,8 +62,6 @@ namespace sf {
     vk::DeviceCreateInfo deviceInfo;
     vk::PhysicalDeviceFeatures deviceEnabledFeatures;
 
-    static std::unique_ptr<Vulkan> sVulkanInstancePtr;
-
     static Vulkan& getVk();
 
     /**

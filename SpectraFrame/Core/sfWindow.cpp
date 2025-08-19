@@ -12,7 +12,7 @@ void sf::Window::_framebufferCallback(GLFWwindow* wnd, int width, int height) {
   ((Window*)glfwGetWindowUserPointer(wnd))->resize(width, height);
 }
 
-sf::Window::Window() {
+sf::Window::Window() : mThreadPool(std::thread::hardware_concurrency()) {
   mWindow = nullptr;
   mWindowSurface = nullptr;
   mWindowSwapchain = nullptr;
@@ -88,7 +88,8 @@ void sf::Window::_createSwapchain() {
       .setComponents(vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA))
       .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 
-    Vulkan::device().createImageView(&imageViewInfo, nullptr, &mWindowSwapchainImageViews[i]);
+    if(Vulkan::device().createImageView(&imageViewInfo, nullptr, &mWindowSwapchainImageViews[i]) != vk::Result::eSuccess)
+      SF_CLOG("ERR: Cannot create swapchain image view " << i);
 
     createVkFence(mSwapchainFencesInFlight[i]);
     createVkSemaphore(mSwapchainImageAvailableSemaphores[i]);
@@ -113,8 +114,112 @@ void sf::Window::_destroySwapchainRelatedObjects() {
   mWindowSwapchainImages.clear();
 }
 
-sf::Window::~Window() {
-  destroy();
+void sf::Window::_createSurface() {
+  // Create surface
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+  vk::Win32SurfaceCreateInfoKHR win32SurfaceInfo{};
+  win32SurfaceInfo
+    .setHwnd(glfwGetWin32Window(mWindow))  
+    .setHinstance(GetModuleHandle());
+
+  mWindowSurface = Vulkan::instance().createWin32SurfaceKHR(win32SurfaceInfo);
+
+#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+  vk::XlibSurfaceCreateInfoKHR xlibSurfaceInfo{};
+  xlibSurfaceInfo
+    .setDpy(glfwGetX11Display())
+    .setWindow(glfwGetX11Window(mWindow));
+
+  mWindowSurface = Vulkan::instance().createXlibSurfaceKHR(xlibSurfaceInfo);
+
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+  vk::WaylandSurfaceCreateInfoKHR waylandSurfaceInfo{};
+  waylandSurfaceInfo
+    .setDisplay(glfwGetWaylandDisplay())
+    .setSurface(glfwGetWaylandWindow(mWindow));
+
+  mWindowSurface = Vulkan::instance().createWaylandSurfaceKHR(waylandSurfaceInfo);
+#endif
+}
+
+sf::Window& sf::Window::window() {
+  return *sWindowInstancePtr;
+}
+
+sf::Window& sf::Window::beginFrame() {
+  return window().beginFrameRendering();
+}
+
+sf::Window& sf::Window::endFrame() {
+  return window().endFrameRendering();
+}
+
+sf::Window& sf::Window::sFullscreen() {
+  window().fullscreen();
+
+  return window();
+}
+
+sf::Window& sf::Window::sWindowed() {
+  window().windowed();
+
+  return window();
+}
+
+bool sf::Window::sIsResized() {
+  return window().isResized();
+}
+
+uint32_t sf::Window::width() {
+  return window().getWidth();
+}
+
+uint32_t sf::Window::height() {
+  return window().getHeight();
+}
+
+const vk::Image& sf::Window::currentImage() {
+  return window().getCurrentImage();
+}
+
+const vk::ImageView& sf::Window::currentView() {
+  return window().getCurrentImageView();
+}
+
+const std::vector<vk::Image>& sf::Window::images() {
+  return window().getImages();
+}
+
+const std::vector<vk::ImageView>& sf::Window::imageViews() {
+  return window().getImageViews();
+}
+
+vk::Fence& sf::Window::currentFence() {
+  return window().getCurrentFence();
+}
+
+vk::Semaphore& sf::Window::currentImageAvailableSemaphore() {
+  return window().getCurrentImageAvailableSemaphore();
+}
+
+vk::Semaphore& sf::Window::currentRenderFinishedSemaphore() {
+  return window().getCurrentRenderFinishedSemaphore();
+}
+
+vk::CommandPool& sf::Window::commandPool() {
+  return window().getCommandPool();
+}
+
+vk::CommandBuffer& sf::Window::currentCommandBuffer() {
+  return window().getCurrentCommandBuffer();
+}
+
+const uint32_t sf::Window::imageIndex() {
+  return window().getCurrentImageIndex();
+}
+
+sf::ThreadPool& sf::Window::threadPool() {
+  return window().getThreadPool();
 }
 
 sf::Window& sf::Window::useVulkanDebugger(bool useDebugger) {
@@ -155,27 +260,26 @@ sf::Window& sf::Window::create(const char* title, const int width, const int hei
   Vulkan::getVk()
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     .graphicsRequiredExtensions(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+
+  SF_CLOG("Using Win32");
 #elif defined(VK_USE_PLATFORM_XLIB_KHR)
     .graphicsRequiredExtensions(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
-#else
+
+  SF_CLOG("Using X11");
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
     .graphicsRequiredExtensions(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+    
+  SF_CLOG("Using Wayland");
 #endif
 
   // If needed create debug messenger
   if (mCreateVulkanDebugger)
-    Vulkan::getVk().enableDebugMessenger();
+    Vulkan::getVk().enableDebugMessenger(false);
 
   // Create instance
   Vulkan::getVk().createInstance();
 
-  SF_CLOG("Created instance");
-
-  // Create surface
-  VkSurfaceKHR surface;
-  glfwCreateWindowSurface(Vulkan::instance(), mWindow, nullptr, &surface);
-  mWindowSurface = vk::SurfaceKHR(surface);
-
-  SF_CLOG("Created surface");
+  _createSurface();
 
   // Pass surface to Vulkan class, pick best gpu and create device
   Vulkan::getVk()
@@ -183,10 +287,16 @@ sf::Window& sf::Window::create(const char* title, const int width, const int hei
     .pickGPU()
     .createDevice();
 
-  SF_CLOG("Initialized vulkan");
-
   // Then make swapchain
   _createSwapchain();
+
+  createVkCommandPool(mSwapchainCommandPool, Vulkan::graphicsQueueIndex());
+  
+  mSwapchainCommandBuffers.resize(mWindowSwapchainImages.size());
+
+  for(int i = 0; i < mSwapchainCommandBuffers.size(); i++) {
+    allocateCommandBuffer(mSwapchainCommandBuffers[i], mSwapchainCommandPool);  
+  }
 
   // And call start virtual function
   start();
@@ -198,28 +308,33 @@ sf::Window& sf::Window::runLoop() {
   // Check if we still want to have opened window
   while (!glfwWindowShouldClose(mWindow)) {
     // Run through counter for synchronization objects
-    mFrameSyncCounter = (mFrameSyncCounter + 1) % mSwapchainFencesInFlight.size();
+    mFrameSyncCounter = (mFrameSyncCounter++) % mWindowSwapchainImages.size();
+
+    glfwGetFramebufferSize(mWindow, &mWidth, &mHeight);
 
     // Poll glfw for events
     glfwPollEvents();
 
     // Wait for fences and reset them to signaled stage
-    Vulkan::device().waitForFences(1, &mSwapchainFencesInFlight[mFrameSyncCounter], vk::True, ~0ULL);
-    Vulkan::device().resetFences(1, &mSwapchainFencesInFlight[mFrameSyncCounter]);
+    if(Vulkan::device().waitForFences(1, &getCurrentFence(), vk::True, UINT64_MAX) != vk::Result::eSuccess)
+      SF_CLOG("ERR: Waiting for fence was not sucessful?!"); 
+
+    if(Vulkan::device().resetFences(1, &getCurrentFence()) != vk::Result::eSuccess)
+      SF_CLOG("ERR: Reseting fence was not succesful?!");
 
     // Acquire image index
     vk::AcquireNextImageInfoKHR acquireInfo{};
     acquireInfo
-      .setSemaphore(mSwapchainImageAvailableSemaphores[mFrameSyncCounter])
+      .setSemaphore(getCurrentImageAvailableSemaphore())
       .setSwapchain(mWindowSwapchain)
       .setFence(nullptr)
       .setDeviceMask(1)
       .setTimeout(~0ULL);
 
-    vk::Result result = Vulkan::device().acquireNextImage2KHR(&acquireInfo, &mSwapchainCurrentImageIndex);
+    vk::Result result = Vulkan::device().acquireNextImage2KHR(&acquireInfo, &mSwapchainCurrentImageIndex); 
 
     // If swapchain was out of date, rebuild it
-    if(result == vk::Result::eErrorOutOfDateKHR) {
+    if(result == vk::Result::eErrorOutOfDateKHR || mWindowResized) {
       Vulkan::waitForIdle();
       Vulkan::refreshCapabilities();
 
@@ -240,7 +355,7 @@ sf::Window& sf::Window::runLoop() {
       .setSwapchainCount(1)
       .setPSwapchains(&mWindowSwapchain)
       .setWaitSemaphoreCount(1)
-      .setPWaitSemaphores(&mSwapchainRenderFinishedSemaphores[mFrameSyncCounter]);
+      .setPWaitSemaphores(&getCurrentRenderFinishedSemaphore());
 
     result = Vulkan::graphicsQueue().presentKHR(&present);
 
@@ -262,6 +377,47 @@ sf::Window& sf::Window::runLoop() {
   }
 
   return *this;
+}
+
+sf::Window& sf::Window::beginFrameRendering() {
+  vk::CommandBufferBeginInfo beginInfo{};
+
+  if(getCurrentCommandBuffer().begin(&beginInfo) != vk::Result::eSuccess)
+    SF_CLOG("ERR: Cannot begin sweapchain command buffer!");
+
+  return window();
+}
+
+sf::Window& sf::Window::endFrameRendering() {
+  getCurrentCommandBuffer().end();
+
+  vk::CommandBufferSubmitInfo cmdInfo;
+  cmdInfo
+    .setCommandBuffer(getCurrentCommandBuffer());
+
+  vk::SemaphoreSubmitInfo waitInfo;
+  waitInfo
+    .setSemaphore(getCurrentImageAvailableSemaphore())
+    .setStageMask(vk::PipelineStageFlagBits2::eTopOfPipe);
+    
+  vk::SemaphoreSubmitInfo sigInfo;
+  sigInfo
+    .setSemaphore(getCurrentRenderFinishedSemaphore())
+    .setStageMask(vk::PipelineStageFlagBits2::eTopOfPipe);
+
+  vk::SubmitInfo2 submitInfo{};
+  submitInfo
+    .setCommandBufferInfoCount(1)
+    .setPCommandBufferInfos(&cmdInfo)
+    .setWaitSemaphoreInfoCount(1)
+    .setPWaitSemaphoreInfos(&waitInfo)
+    .setSignalSemaphoreInfoCount(1)
+    .setPSignalSemaphoreInfos(&sigInfo);
+
+  if(sf::Vulkan::graphicsQueue().submit2(1, &submitInfo, getCurrentFence()) != vk::Result::eSuccess)
+      SF_CLOG("ERR: Cannot submit command buffer");
+
+  return window();
 }
 
 sf::Window& sf::Window::fullscreen() {
@@ -338,22 +494,39 @@ vk::Semaphore& sf::Window::getCurrentRenderFinishedSemaphore() {
   return mSwapchainRenderFinishedSemaphores[mFrameSyncCounter];
 }
 
+vk::CommandPool& sf::Window::getCommandPool() {
+  return mSwapchainCommandPool;
+}
+
+vk::CommandBuffer& sf::Window::getCurrentCommandBuffer() {
+  return mSwapchainCommandBuffers[mFrameSyncCounter];
+}
+
 const uint32_t sf::Window::getCurrentImageIndex() const {
   return mSwapchainCurrentImageIndex;
 }
 
+sf::ThreadPool& sf::Window::getThreadPool() {
+  return mThreadPool;
+}
+
 void sf::Window::destroy() {
+  mThreadPool.stop();
+
   // Wait for everything to be idle to destroy
   Vulkan::waitForIdle();
 
   // Firstly end everything user defined or scene defined
   end();
 
+  Vulkan::device().freeCommandBuffers(mSwapchainCommandPool, static_cast<uint32_t>(mSwapchainCommandBuffers.size()), mSwapchainCommandBuffers.data());
+  Vulkan::device().destroyCommandPool(mSwapchainCommandPool, nullptr);
+
   // Then destroy vulkan window objects (swapchain and everything related) and critical objects
   _destroySwapchainRelatedObjects();
 
   Vulkan::device().destroySwapchainKHR(mWindowSwapchain, nullptr);
-
+  
   Vulkan::getVk().destroy();
 
   glfwDestroyWindow(mWindow);

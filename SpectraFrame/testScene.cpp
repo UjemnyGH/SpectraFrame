@@ -1,130 +1,251 @@
 #include "Core/sfWindow.h"
-#include "Rendering/sfRenderPass.h"
+#include "Rendering/sfRenderGraph.h"
 #include "Scene/sfScene.h"
 #include "Core/sfLogger.h"
 #include "stb_image.h"
-#include "Core/sfSwapchain.h"
-#include "Rendering/sfRenderPassImages.h"
+#include "Rendering/sfPipeline.h"
+#include "Core/sfVkCommon.h"
 
 #include "Math/sfQuaterion.h"
 
 #include "Core/sfPLYLoader.h"
 #include "Core/sfCommon.h"
 
-class JustRender : public sf::RenderPass {
-public:
-  JustRender() : sf::RenderPass(0) {}
-
-  virtual void execute(vk::CommandBuffer& cmd) override {
-    
-  }
-};
-
 class TestScene : public sf::Scene {
 public:
   TestScene() : sf::Scene("TestScene", true) {}
 
-  JustRender pass;
-  std::vector<vk::Framebuffer> framebuffers;
+  sf::RenderGraphManager renderGraphManager;
 
-  vk::Pipeline pipeline;
   vk::PipelineLayout layout;
+  vk::PipelineLayout layout2;
 
-  vk::CommandPool pool;
-  std::vector<vk::CommandBuffer> commandBuffers;
+  sf::GraphicsPipeline pipeline;
+  sf::GraphicsPipeline pipeline2;
 
-  sf::DepthImage depth;
+  vk::DescriptorSet pipeline2Set;
+  vk::DescriptorPool pipeline2Pool;
+  vk::DescriptorSetLayout pipeline2SetLayout;
+
+  sf::VertexBuffer buffer;
+
+  bool updateDescriptor = true;
+
+  void createRenderPass() {
+    renderGraphManager
+      .addImage("Geometry", vk::Format::eR8G8B8A8Srgb)
+      .addDepthImage("GeometryDepth")
+      .addAttachment(sf::RenderGraphManagerAttachment{"GeometryPass", 
+        [this](vk::CommandBuffer& cmd, sf::RenderGraphImageManager& imageManager) {
+          if(!pipeline.isThreadWorkerRunning() && pipeline.getPipeline() != nullptr) {
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.getPipeline());
+
+            vk::Viewport viewport{0.0f, 0.0f, (float)sf::Window::width(), (float)sf::Window::height(), 0.0f, 1.0f};
+            vk::Rect2D scissor{{0, 0}, vk::Extent2D(sf::Window::width(), sf::Window::height())};
+
+            vk::DeviceSize offset[] = {0};
+
+            cmd.setViewport(0, 1, &viewport);
+            cmd.setScissor(0, 1, &scissor);
+            cmd.bindVertexBuffers(0, 1, &buffer.getBuffer(), offset);
+
+            cmd.draw(3, 1, 0, 0);
+          }
+        },
+         {"Geometry"}, "GeometryDepth"})
+
+      .addAttachment(sf::RenderGraphManagerAttachment{"LightingPass", 
+        [this](vk::CommandBuffer& cmd, sf::RenderGraphImageManager& imageManager) {
+          if(!pipeline2.isThreadWorkerRunning() && pipeline2.getPipeline() != nullptr) {
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline2.getPipeline());
+
+            vk::Viewport viewport{0.0f, 0.0f, (float)sf::Window::width(), (float)sf::Window::height(), 0.0f, 1.0f};
+            vk::Rect2D scissor{{0, 0}, vk::Extent2D(sf::Window::width(), sf::Window::height())};
+
+            cmd.setViewport(0, 1, &viewport);
+            cmd.setScissor(0, 1, &scissor);
+
+            cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout2, 0, 1, &pipeline2Set, 0, nullptr);
+
+            cmd.draw(6, 1, 0, 0);
+          }
+        },
+         {"Swapchain_0"}, std::string()});
+
+    uint32_t swapchainImagesIter = 0;
+    for(const vk::Image& image : sf::Window::images()) {
+      renderGraphManager.addSwapchainImage("Swapchain_" + std::to_string(swapchainImagesIter), image, swapchainImagesIter);
+
+      swapchainImagesIter++;
+    }
+
+    sf::Window::threadPool().addTask(&renderGraphManager);
+    //renderGraphManager.build();
+  }
+
+  vk::Format pipelineColorAttachment;
+  vk::Format pipeline2ColorAttachment;
+
+  void updateWriteDescriptor() {
+    vk::DescriptorImageInfo imageInfo {
+      renderGraphManager.getImageManager()["Geometry"].getSampler(), 
+      renderGraphManager.getImageManager()["Geometry"].getView(), 
+      vk::ImageLayout::eShaderReadOnlyOptimal
+    };
+
+    vk::WriteDescriptorSet writeSet{};
+    writeSet
+      .setDescriptorCount(1)
+      .setDstBinding(0)
+      .setDstSet(pipeline2Set)
+      .setPImageInfo(&imageInfo)
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+      .setDstArrayElement(0);
+
+    sf::Vulkan::device().updateDescriptorSets(1, &writeSet, 0, nullptr);
+  }
+
+  void createPipeline() {
+    pipelineColorAttachment = vk::Format::eR8G8B8A8Srgb;
+    pipeline2ColorAttachment = sf::Vulkan::surfaceFormat().format;
+
+    vk::PipelineLayoutCreateInfo layoutInfo;
+
+    if(sf::Vulkan::device().createPipelineLayout(&layoutInfo, nullptr, &layout) != vk::Result::eSuccess)
+      SF_CLOG("ERR: Cannot create pipeline layout");
+
+    if(std::filesystem::is_directory(std::filesystem::current_path() / "SpectraFrame"))
+      std::filesystem::current_path(std::filesystem::current_path() / "SpectraFrame");
+
+    pipeline
+      .setPipelineLayout(&layout)
+      .setBindings({(vk::VertexInputBindingDescription){0, sizeof(float) * 5, vk::VertexInputRate::eVertex}})
+      .setAttributes({
+        (vk::VertexInputAttributeDescription){0, 0, vk::Format::eR32G32Sfloat, 0},
+        (vk::VertexInputAttributeDescription){1, 0, vk::Format::eR32G32B32Sfloat, sizeof(float) * 2}
+      })
+      .setDynamicStates({
+        vk::DynamicState::eViewport,
+        vk::DynamicState::eScissor
+      })
+      .setShader(vk::ShaderStageFlagBits::eVertex, std::filesystem::current_path() / "../g_buffer_vert.spv")
+      .setShader(vk::ShaderStageFlagBits::eFragment, std::filesystem::current_path() / "../g_buffer_frag.spv")
+      .enableBlend({false})
+      .setRenderingInfo(vk::PipelineRenderingCreateInfo{0, 1, &pipelineColorAttachment, sf::Vulkan::depthFormat()})
+      .createPipelineCache({});
+
+    sf::Window::threadPool().addTask(&pipeline);
+
+    vk::DescriptorPoolSize poolSize{vk::DescriptorType::eCombinedImageSampler, 1};
+
+    vk::DescriptorPoolCreateInfo poolInfo{};
+    poolInfo
+      .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
+      .setPoolSizeCount(1)
+      .setPPoolSizes(&poolSize)
+      .setMaxSets(1);
+
+    sf::Vulkan::device().createDescriptorPool(&poolInfo, nullptr, &pipeline2Pool);
+
+    vk::DescriptorSetLayoutBinding binding{0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment};
+
+    vk::DescriptorSetLayoutCreateInfo setLayoutInfo{};
+    setLayoutInfo
+      .setBindingCount(1)
+      .setPBindings(&binding);
+
+    sf::Vulkan::device().createDescriptorSetLayout(&setLayoutInfo, nullptr, &pipeline2SetLayout);
+
+    vk::DescriptorSetAllocateInfo allocInfo{};
+    allocInfo
+      .setDescriptorPool(pipeline2Pool)
+      .setDescriptorSetCount(1)
+      .setPSetLayouts(&pipeline2SetLayout);
+
+    sf::Vulkan::device().allocateDescriptorSets(&allocInfo, &pipeline2Set); 
+
+    layoutInfo
+      .setSetLayoutCount(1)
+      .setPSetLayouts(&pipeline2SetLayout);
+
+    sf::Vulkan::device().createPipelineLayout(&layoutInfo, nullptr, &layout2);
+
+    pipeline2
+      .setDynamicStates({vk::DynamicState::eViewport, vk::DynamicState::eScissor})
+      .setPipelineLayout(&layout2)
+      .setShader(vk::ShaderStageFlagBits::eVertex, std::filesystem::current_path() / "../light_vert.spv")
+      .setShader(vk::ShaderStageFlagBits::eFragment, std::filesystem::current_path() / "../light_frag.spv")
+      .enableDepthTest(false)
+      .enableBlend({false})
+      .setRenderingInfo(vk::PipelineRenderingCreateInfo{0, 1, &pipeline2ColorAttachment})
+      .createPipelineCache({});
+
+    sf::Window::threadPool().addTask(&pipeline2);
+  }
 
   virtual void start() override {
     SF_CDEBUG("Started test scene");
-    
-    sf::createVkCommandPool(pool, sf::Vulkan::graphicsQueueIndex());
+   
+    std::vector<float> data = {
+      0.0f, 0.5f, 1.0f, 0.0f, 0.0f,
+      -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+      0.5f, -0.5f, 0.0f, 0.0f, 1.0f
+    };
 
-    depth.create(vk::Extent3D(sf::Window::sWindowInstancePtr->getWidth(), sf::Window::sWindowInstancePtr->getHeight(), 1), pool);
+    buffer.update(sf::Window::commandPool(), sf::Vulkan::graphicsQueue(), data);
 
-    pass.addAttachment(sf::Vulkan::surfaceFormat().format, vk::ImageLayout::ePresentSrcKHR);
-    pass.addAttachment(sf::Vulkan::depthFormat(), vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    createRenderPass();
 
-    pass.build();
+    createPipeline();
 
-    framebuffers.resize(sf::Window::sWindowInstancePtr->getImages().size());
-    commandBuffers.resize(framebuffers.size());
+    SF_CDEBUG("Start ended");
+  }
 
-    for(uint32_t i = 0; i < framebuffers.size(); i++) {
-      std::vector<vk::ImageView> attachments = {
-        sf::Window::sWindowInstancePtr->getImageViews()[i],
-        depth.getView()
-      };
-
-      vk::FramebufferCreateInfo framebufferInfo{};
-      framebufferInfo
-        .setAttachmentCount(static_cast<uint32_t>(attachments.size()))
-        .setPAttachments(attachments.data())
-        .setRenderPass(pass.getRenderPass())
-        .setLayers(1)
-        .setWidth(sf::Window::sWindowInstancePtr->getWidth())
-        .setHeight(sf::Window::sWindowInstancePtr->getHeight());
-
-      if(sf::Vulkan::device().createFramebuffer(&framebufferInfo, nullptr, &framebuffers[i]) != vk::Result::eSuccess)
-        SF_CLOG("ERR: Cannot create framebuffer");
-
-      sf::allocateCommandBuffer(commandBuffers[i], pool);
+  virtual void update() override {
+    if(!renderGraphManager.isThreadWorkerRunning() && updateDescriptor) {
+      updateDescriptor = false;
+      updateWriteDescriptor();
     }
+
+    if(sf::Window::sIsResized()) {
+      renderGraphManager.rebuild();
+
+      return;
+    }
+
+    sf::Window::beginFrame();
+
+    renderGraphManager.run(sf::Window::currentCommandBuffer(), "GeometryPass");
+
+    renderGraphManager.run(sf::Window::currentCommandBuffer(), "LightingPass");
+
+    sf::Window::endFrame(); 
   }
 
-  virtual void update() {
-    vk::CommandBufferBeginInfo beginInfo{};
-
-    if(commandBuffers[sf::Window::sWindowInstancePtr->getCurrentImageIndex()].begin(&beginInfo) != vk::Result::eSuccess)
-      SF_CLOG("ERR: Cannot begin command buffer");
-
-    pass.run(commandBuffers[sf::Window::sWindowInstancePtr->getCurrentImageIndex()], framebuffers[sf::Window::sWindowInstancePtr->getCurrentImageIndex()]);
-
-    commandBuffers[sf::Window::sWindowInstancePtr->getCurrentImageIndex()].end();
-
-    vk::CommandBufferSubmitInfo cmdInfo;
-    cmdInfo
-      .setCommandBuffer(commandBuffers[sf::Window::sWindowInstancePtr->getCurrentImageIndex()]);
-
-    vk::SemaphoreSubmitInfo waitInfo;
-    waitInfo
-      .setSemaphore(sf::Window::sWindowInstancePtr->getCurrentImageAvailableSemaphore())
-      .setStageMask(vk::PipelineStageFlagBits2::eTopOfPipe);
-    
-    vk::SemaphoreSubmitInfo sigInfo;
-    sigInfo
-      .setSemaphore(sf::Window::sWindowInstancePtr->getCurrentRenderFinishedSemaphore())
-      .setStageMask(vk::PipelineStageFlagBits2::eTopOfPipe);
-
-    vk::SubmitInfo2 submitInfo{};
-    submitInfo
-      .setCommandBufferInfoCount(1)
-      .setPCommandBufferInfos(&cmdInfo)
-      .setWaitSemaphoreInfoCount(1)
-      .setPWaitSemaphoreInfos(&waitInfo)
-      .setSignalSemaphoreInfoCount(1)
-      .setPSignalSemaphoreInfos(&sigInfo);
-
-    if(sf::Vulkan::graphicsQueue().submit2(1, &submitInfo, sf::Window::sWindowInstancePtr->getCurrentFence()) != vk::Result::eSuccess)
-      SF_CLOG("ERR: Cannot submit command buffer");
-  }
-
-  virtual void lateUpdate() {
+  virtual void lateUpdate() override {
     
   }
 
-  virtual void end() {
+  virtual void end() override {
     SF_CDEBUG("Ended test scene");
-    
-    depth.destroy();
+   
+    renderGraphManager.destroy();
 
-    pass.destroy();
+    sf::Vulkan::device().destroyPipelineLayout(layout);
+    sf::Vulkan::device().destroyPipelineLayout(layout2);
 
-    sf::Vulkan::device().freeCommandBuffers(pool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-    sf::Vulkan::device().destroyCommandPool(pool, nullptr);
+    buffer.destroy();
 
-    for(vk::Framebuffer fb : framebuffers) {
-      sf::Vulkan::device().destroyFramebuffer(fb, nullptr);
-    }
+    pipeline.destroyCache();
+    pipeline2.destroyCache();
+
+    pipeline.destroy();
+    pipeline2.destroy();
+
+    sf::Vulkan::device().freeDescriptorSets(pipeline2Pool, 1, &pipeline2Set);
+    sf::Vulkan::device().destroyDescriptorSetLayout(pipeline2SetLayout);
+    sf::Vulkan::device().destroyDescriptorPool(pipeline2Pool);
+
+    SF_CDEBUG("All test scene objects has been destroyed");
   }
 } G_TEST_SCENE;

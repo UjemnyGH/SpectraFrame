@@ -241,83 +241,12 @@ size_t sf::VertexBuffer::getBufferSize() {
   return mBufferSize;
 }
 
-template <typename T>
-sf::VertexBuffer& sf::VertexBuffer::update(vk::CommandPool& commandPool, const vk::Queue submitQueue, const std::vector<T>& data) {
-  if (mBufferSize != data.size() * sizeof(data[0]) || mBuffer == nullptr || mBufferMemory == nullptr) {
-    destroy();
-
-    mBufferSize = data.size() * sizeof(data[0]);
-
-    vk::BufferCreateInfo bufferInfo;
-    bufferInfo
-      .setSize(mBufferSize)
-      .setSharingMode(vk::SharingMode::eExclusive)
-      .setUsage(vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst)
-      .setQueueFamilyIndexCount(0);
-
-    if(Vulkan::device().createBuffer(&bufferInfo, nullptr, &mBuffer) != vk::Result::eSuccess)
-      SF_CLOG("ERR: Cannot create vertex buffer buffer");
-
-    vk::MemoryAllocateInfo memAllocInfo;
-    memAllocInfo
-      .setMemoryTypeIndex(findBufferMemoryType(memAllocInfo.allocationSize, mBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal));
-
-    if(Vulkan::device().allocateMemory(&memAllocInfo, nullptr, &mBufferMemory) != vk::Result::eSuccess)
-      SF_CLOG("ERR: Cannot allocate vertex buffer memory");
-
-    Vulkan::device().bindBufferMemory(mBuffer, mBufferMemory, 0);
-  }
-
-  void* pCopyData;
-
-  vk::Buffer stageBuffer;
-  vk::DeviceMemory stageMemory;
-
-  vk::BufferCreateInfo stageBufferInfo;
-  stageBufferInfo
-    .setSize(mBufferSize)
-    .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
-    .setSharingMode(vk::SharingMode::eExclusive)
-    .setQueueFamilyIndexCount(0);
-
-  if(Vulkan::device().createBuffer(&stageBufferInfo, nullptr, &stageBuffer) != vk::Result::eSuccess)
-    SF_CLOG("ERR: Cannot create vertex stage buffer buffer");
-
-  vk::MemoryAllocateInfo stageMemAllocInfo;
-  stageMemAllocInfo
-    .setMemoryTypeIndex(findBufferMemoryType(stageMemAllocInfo.allocationSize, stageBuffer, vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible));
-
-  if(Vulkan::device().allocateMemory(&stageMemAllocInfo, nullptr, &stageMemory) != vk::Result::eSuccess)
-    SF_CLOG("ERR: Cannot allocate vertex stage buffer memory");
-
-  Vulkan::device().bindBufferMemory(stageBuffer, stageMemory, 0);
-
-  Vulkan::device().mapMemory(stageMemory, 0, mBufferSize, vk::MemoryMapFlags(0), pCopyData);
-
-  memcpy(pCopyData, &data[0], mBufferSize);
-
-  Vulkan::device().unmapMemory(stageMemory);
-
-  vk::CommandBuffer oneTimeCopy;
-  
-  commandBufferOneTimeBegin(oneTimeCopy, commandPool);
-
-  CopyBuffer copyRegion;
-  copyRegion
-    .setCommandBuffer(oneTimeCopy)
-    .copyBufferToBuffer(mBuffer, stageBuffer, mBufferSize);
-
-  commandBufferOneTimeEnd(oneTimeCopy, commandPool, submitQueue);
-
-  Vulkan::device().freeMemory(stageMemory, nullptr);
-  Vulkan::device().destroyBuffer(stageBuffer, nullptr);
-
-  return *this;
-}
-
 void sf::VertexBuffer::destroy() {
-  Vulkan::device().freeMemory(mBufferMemory, nullptr);
-  Vulkan::device().destroyBuffer(mBuffer, nullptr);
+  if(mBufferMemory)
+    Vulkan::device().freeMemory(std::exchange(mBufferMemory, nullptr), nullptr);
+
+  if(mBuffer)
+    Vulkan::device().destroyBuffer(std::exchange(mBuffer, nullptr), nullptr);
 
   mBufferSize = 0;
 }
@@ -371,8 +300,11 @@ sf::UniformBuffer& sf::UniformBuffer::unmap() {
 }
 
 void sf::UniformBuffer::destroy() {
-  Vulkan::device().freeMemory(mBufferMemory, nullptr);
-  Vulkan::device().destroyBuffer(mBuffer, nullptr);
+  if(mBufferMemory)
+    Vulkan::device().freeMemory(std::exchange(mBufferMemory, nullptr), nullptr);
+
+  if(mBuffer)
+    Vulkan::device().destroyBuffer(std::exchange(mBuffer, nullptr), nullptr);
 }
 
 sf::Sampler::~Sampler() {
@@ -531,12 +463,17 @@ sf::Sampler& sf::Sampler::create(vk::CommandPool& commandPool, const vk::Queue s
 }
 
 void sf::Sampler::destroy() {
-  Vulkan::device().destroySampler(mSampler, nullptr);
+  if(mSampler)
+    Vulkan::device().destroySampler(std::exchange(mSampler, nullptr), nullptr);
 
-  Vulkan::device().destroyImageView(mImageView, nullptr);
+  if(mImageView)
+    Vulkan::device().destroyImageView(std::exchange(mImageView, nullptr), nullptr);
+
+  if(mImageMemory)
+    Vulkan::device().freeMemory(std::exchange(mImageMemory, nullptr), nullptr);
   
-  Vulkan::device().freeMemory(mImageMemory, nullptr);
-  Vulkan::device().destroyImage(mImage, nullptr);
+  if(mImage)
+    Vulkan::device().destroyImage(std::exchange(mImage, nullptr), nullptr);
 }
 
 sf::ShaderStorageBuffer::~ShaderStorageBuffer() {
@@ -600,8 +537,11 @@ sf::ShaderStorageBuffer& sf::ShaderStorageBuffer::unmap() {
 void sf::ShaderStorageBuffer::destroy() {
   mBufferSize = 0;
 
-  Vulkan::device().freeMemory(mBufferMemory, nullptr);
-  Vulkan::device().destroyBuffer(mBuffer, nullptr);
+  if(mBufferMemory)
+    Vulkan::device().freeMemory(std::exchange(mBufferMemory, nullptr), nullptr);
+
+  if(mBuffer)
+    Vulkan::device().destroyBuffer(std::exchange(mBuffer, nullptr), nullptr);
 }
 
 sf::Shader::~Shader() {
@@ -631,7 +571,8 @@ sf::Shader& sf::Shader::create(const std::vector<uint8_t>& shaderBinary, const v
 }
 
 void sf::Shader::destroy() {
-  Vulkan::device().destroyShaderModule(mShaderModule, nullptr);
+  if(mShaderModule)
+    Vulkan::device().destroyShaderModule(std::exchange(mShaderModule, nullptr), nullptr);
 
   mShaderStage = vk::ShaderStageFlags(0);
 }
@@ -710,8 +651,12 @@ sf::DepthImage& sf::DepthImage::create(const vk::Extent3D extent, vk::CommandPoo
 }
 
 void sf::DepthImage::destroy() {
-  Vulkan::device().destroyImageView(mDepthImageView, nullptr);
+  if(mDepthImageView)
+    Vulkan::device().destroyImageView(std::exchange(mDepthImageView, nullptr), nullptr);
 
-  Vulkan::device().freeMemory(mDepthImageMemory, nullptr);
-  Vulkan::device().destroyImage(mDepthImage, nullptr);
+  if(mDepthImageMemory)
+    Vulkan::device().freeMemory(std::exchange(mDepthImageMemory, nullptr), nullptr);
+
+  if(mDepthImage)
+    Vulkan::device().destroyImage(std::exchange(mDepthImage, nullptr), nullptr);
 }

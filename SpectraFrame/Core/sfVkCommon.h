@@ -3,6 +3,8 @@
 #define _SPECTRAFRAME_VULKAN_COMMON_
 
 #include <vulkan/vulkan.hpp>
+#include "sfVkCore.h"
+#include "sfLogger.h"
 
 namespace sf {
   void commandBufferOneTimeBegin(vk::CommandBuffer& commandBuffer, vk::CommandPool& commandPool);
@@ -95,8 +97,79 @@ namespace sf {
      * @param data 
      * @return 
      */
-    template <typename T>
-    VertexBuffer& update(vk::CommandPool& commandPool, const vk::Queue submitQueue, const std::vector<T>& data);
+    template <class T>
+    inline VertexBuffer& update(vk::CommandPool& commandPool, vk::Queue submitQueue, const std::vector<T>& data)  {
+      if (mBufferSize != data.size() * sizeof(data[0]) || mBuffer == nullptr || mBufferMemory == nullptr) {
+        destroy();
+
+        mBufferSize = data.size() * sizeof(data[0]);
+
+        vk::BufferCreateInfo bufferInfo;
+        bufferInfo
+          .setSize(mBufferSize)
+          .setSharingMode(vk::SharingMode::eExclusive)
+          .setUsage(vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst)
+          .setQueueFamilyIndexCount(0);
+
+        if(Vulkan::device().createBuffer(&bufferInfo, nullptr, &mBuffer) != vk::Result::eSuccess)
+          SF_CLOG("ERR: Cannot create vertex buffer buffer");
+
+        vk::MemoryAllocateInfo memAllocInfo;
+        memAllocInfo
+          .setMemoryTypeIndex(findBufferMemoryType(memAllocInfo.allocationSize, mBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal));
+
+        if(Vulkan::device().allocateMemory(&memAllocInfo, nullptr, &mBufferMemory) != vk::Result::eSuccess)
+          SF_CLOG("ERR: Cannot allocate vertex buffer memory");
+
+        Vulkan::device().bindBufferMemory(mBuffer, mBufferMemory, 0);
+      }
+
+      void* pCopyData;
+
+      vk::Buffer stageBuffer;
+      vk::DeviceMemory stageMemory;
+
+      vk::BufferCreateInfo stageBufferInfo;
+      stageBufferInfo
+        .setSize(mBufferSize)
+        .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
+        .setSharingMode(vk::SharingMode::eExclusive)
+        .setQueueFamilyIndexCount(0);
+
+      if(Vulkan::device().createBuffer(&stageBufferInfo, nullptr, &stageBuffer) != vk::Result::eSuccess)
+        SF_CLOG("ERR: Cannot create vertex stage buffer buffer");
+
+      vk::MemoryAllocateInfo stageMemAllocInfo;
+      stageMemAllocInfo
+        .setMemoryTypeIndex(findBufferMemoryType(stageMemAllocInfo.allocationSize, stageBuffer, vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible));
+
+      if(Vulkan::device().allocateMemory(&stageMemAllocInfo, nullptr, &stageMemory) != vk::Result::eSuccess)
+        SF_CLOG("ERR: Cannot allocate vertex stage buffer memory");
+
+      Vulkan::device().bindBufferMemory(stageBuffer, stageMemory, 0);
+
+      pCopyData = Vulkan::device().mapMemory(stageMemory, 0, mBufferSize);
+
+      memcpy(pCopyData, &data[0], mBufferSize);
+
+      Vulkan::device().unmapMemory(stageMemory);
+
+      vk::CommandBuffer oneTimeCopy;
+  
+      commandBufferOneTimeBegin(oneTimeCopy, commandPool);
+
+      CopyBuffer copyRegion;
+      copyRegion
+        .setCommandBuffer(oneTimeCopy)
+        .copyBufferToBuffer(stageBuffer, mBuffer, mBufferSize);
+
+      commandBufferOneTimeEnd(oneTimeCopy, commandPool, submitQueue);
+
+      Vulkan::device().freeMemory(stageMemory, nullptr);
+      Vulkan::device().destroyBuffer(stageBuffer, nullptr);
+
+      return *this;
+    }
 
     void destroy();
   };

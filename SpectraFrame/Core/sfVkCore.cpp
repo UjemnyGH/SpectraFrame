@@ -1,8 +1,7 @@
 #include "sfVkCore.h"
 #include <iostream>
 #include <map>
-
-std::unique_ptr<sf::Vulkan> sf::Vulkan::sVulkanInstancePtr = std::make_unique<Vulkan>();
+#include "sfLogger.h"
 
 vk::Bool32 sf::Vulkan::_debugUtilsMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData) {
   // Just check what message severity is and put message in console
@@ -43,13 +42,8 @@ vk::Bool32 sf::Vulkan::_debugUtilsMessengerCallback(vk::DebugUtilsMessageSeverit
 }
 
 bool sf::Vulkan::_checkInstanceLayersSupport() {
-  uint32_t count = 0;
-
-  // Get all properties of and instance layer
-  vk::enumerateInstanceLayerProperties(&count, nullptr);
-
-  std::vector<vk::LayerProperties> properties(count);
-  vk::enumerateInstanceLayerProperties(&count, &properties[0]);
+  // Get all properties of a instance layer
+  std::vector<vk::LayerProperties> properties = vk::enumerateInstanceLayerProperties();
 
   // Then check if we have desired layers
   for (const char* name : mInstanceEnabledLayers) {
@@ -77,21 +71,14 @@ void sf::Vulkan::_getAvailableSurfaceData() {
   if(!mCheckSwapchainExtensionSupport) return;
 
   // Get currently used surface capabilities
-  mSelectedPhysicalDevice.getSurfaceCapabilitiesKHR(*mSurfacePtr, &mSurfaceCapabilities);
-
-  uint32_t formatCount = 0;
+  if(mSelectedPhysicalDevice.getSurfaceCapabilitiesKHR(*mSurfacePtr, &mSurfaceCapabilities) != vk::Result::eSuccess) 
+    SF_CLOG("ERR: Cannot get surface capabilities");
 
   // Get all available surface formats
-  mSelectedPhysicalDevice.getSurfaceFormatsKHR(*mSurfacePtr, &formatCount, nullptr);
-  mAvailableSurfaceFormats.resize(formatCount);
-  mSelectedPhysicalDevice.getSurfaceFormatsKHR(*mSurfacePtr, &formatCount, &mAvailableSurfaceFormats[0]);
-
-  uint32_t presentModeCount = 0;
+  mAvailableSurfaceFormats = mSelectedPhysicalDevice.getSurfaceFormatsKHR(*mSurfacePtr);
   
   // Get all available surfrace present modes
-  mSelectedPhysicalDevice.getSurfacePresentModesKHR(*mSurfacePtr, &presentModeCount, nullptr);
-  mAvailablePresentModes.resize(presentModeCount);
-  mSelectedPhysicalDevice.getSurfacePresentModesKHR(*mSurfacePtr, &presentModeCount, &mAvailablePresentModes[0]);
+  mAvailablePresentModes = mSelectedPhysicalDevice.getSurfacePresentModesKHR(*mSurfacePtr);
 }
 
 vk::Format sf::Vulkan::_findSupportedFormat(const std::vector<vk::Format>& desiredFormats, const vk::ImageTiling tiling, const vk::FormatFeatureFlags features) {
@@ -128,17 +115,9 @@ bool sf::Vulkan::_checkPhysicalDeviceSwapchainSupport(vk::PhysicalDevice& physic
   if(supportSwapchain)
     return false;
 
-  uint32_t formatCount = 0;
+  std::vector<vk::SurfaceFormatKHR> formats = physicalDevice.getSurfaceFormatsKHR(*mSurfacePtr);
 
-  physicalDevice.getSurfaceFormatsKHR(*mSurfacePtr, &formatCount, nullptr);
-  std::vector<vk::SurfaceFormatKHR> formats(formatCount);
-  physicalDevice.getSurfaceFormatsKHR(*mSurfacePtr, &formatCount, &formats[0]);
-
-  uint32_t modeCount = 0;
-  
-  physicalDevice.getSurfacePresentModesKHR(*mSurfacePtr, &modeCount, nullptr);
-  std::vector<vk::PresentModeKHR> modes(modeCount);
-  physicalDevice.getSurfacePresentModesKHR(*mSurfacePtr, &modeCount, &modes[0]);
+  std::vector<vk::PresentModeKHR> modes = physicalDevice.getSurfacePresentModesKHR(*mSurfacePtr);
 
   return !formats.empty() && !modes.empty();
 }
@@ -147,11 +126,7 @@ bool sf::Vulkan::_checkPhysicalDeviceSwapchainSupport(vk::PhysicalDevice& physic
 uint32_t sf::Vulkan::_scorePhysicalDevice(vk::PhysicalDevice& physicalDevice) {
   uint32_t currentScore = 0;
 
-  uint32_t extensionCount = 0;
-
-  physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
-  std::vector<vk::ExtensionProperties> extensions(extensionCount);
-  physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, &extensions[0]);
+  std::vector<vk::ExtensionProperties> extensions = physicalDevice.enumerateDeviceExtensionProperties(nullptr);
 
   if(mCheckSwapchainExtensionSupport && !_checkPhysicalDeviceSwapchainSupport(physicalDevice, extensions)) 
     return 0;
@@ -188,7 +163,7 @@ uint32_t sf::Vulkan::_scorePhysicalDevice(vk::PhysicalDevice& physicalDevice) {
     vk::Bool32 surfaceSupported = vk::False;
 
     if(mCheckSwapchainExtensionSupport && mSurfacePtr)
-      physicalDevice.getSurfaceSupportKHR(index, *mSurfacePtr);
+      surfaceSupported = physicalDevice.getSurfaceSupportKHR(index, *mSurfacePtr);
 
     if(surfaceSupported)
       currentScore += 1000;
@@ -200,7 +175,9 @@ uint32_t sf::Vulkan::_scorePhysicalDevice(vk::PhysicalDevice& physicalDevice) {
 }
 
 sf::Vulkan& sf::Vulkan::getVk() {
-  return *sVulkanInstancePtr;
+  static Vulkan vulkanInstance;
+
+  return vulkanInstance;
 }
 
 sf::Vulkan& sf::Vulkan::refreshCapabilities() {
@@ -312,7 +289,7 @@ sf::Vulkan::Vulkan() {
 }
 
 sf::Vulkan::~Vulkan() {
-  destroy();
+  //destroy();
 }
 
 vk::Instance& sf::Vulkan::getInstance() {
@@ -486,18 +463,16 @@ sf::Vulkan& sf::Vulkan::createInstance() {
   if(mDefaultDebugMessenger) {
     PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)mInstance.getProcAddr("vkCreateDebugUtilsMessengerEXT");
 
-    func((VkInstance)mInstance, (VkDebugUtilsMessengerCreateInfoEXT*)&debugUtilsMessengerInfo, nullptr, (VkDebugUtilsMessengerEXT*)&mDebugUtilsMessenger);
+    VkDebugUtilsMessengerEXT debugMessenger;
+    func(mInstance, (VkDebugUtilsMessengerCreateInfoEXT*)&debugUtilsMessengerInfo, nullptr, &debugMessenger);
+    mDebugUtilsMessenger = vk::DebugUtilsMessengerEXT(debugMessenger);
   }
 
   return *this;
 }
 
 sf::Vulkan& sf::Vulkan::pickGPU() {
-  uint32_t count = 0;
-
-  mInstance.enumeratePhysicalDevices(&count, nullptr);
-  mAvailablePhysicalDevices.resize(count);
-  mInstance.enumeratePhysicalDevices(&count, &mAvailablePhysicalDevices[0]);
+  mAvailablePhysicalDevices = mInstance.enumeratePhysicalDevices();
 
   std::map<uint32_t, vk::PhysicalDevice> scoredDevices;
 
@@ -528,7 +503,8 @@ sf::Vulkan& sf::Vulkan::pickGPU() {
       if(mSurfacePtr && mCheckSwapchainExtensionSupport) {
         surfaceSupported = vk::False;
 
-        mSelectedPhysicalDevice.getSurfaceSupportKHR(selectedQueueIndex, *mSurfacePtr, &surfaceSupported);
+        if(mSelectedPhysicalDevice.getSurfaceSupportKHR(selectedQueueIndex, *mSurfacePtr, &surfaceSupported) != vk::Result::eSuccess)
+          SF_CLOG("ERR: getSurfaceSupportKHR");
       }
 
       if(surfaceSupported)
@@ -576,12 +552,23 @@ sf::Vulkan& sf::Vulkan::createDevice() {
     .setQueueCount(1)
     .setQueueFamilyIndex(mTransferQueueIndex);
 
-  vk::PhysicalDeviceVulkan13Features vk13Features;
+  vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicStatefeatures{};
+  extendedDynamicStatefeatures
+    .setExtendedDynamicState(vk::True);
+
+  vk::PhysicalDeviceVulkan13Features vk13Features{};
   vk13Features
-    .setSynchronization2(vk::True);
+    .setPNext(&extendedDynamicStatefeatures)
+    .setSynchronization2(vk::True)
+    .setDynamicRendering(vk::True);
+
+  vk::PhysicalDeviceFeatures2 features2{};
+  features2
+    .setPNext(&vk13Features);
 
   deviceInfo
-    .setPNext(&vk13Features)
+    .setPNext(&features2)
+    .setPEnabledFeatures(nullptr)
     .setQueueCreateInfoCount(static_cast<uint32_t>(mDeviceQueueInfos.size()))
     .setPQueueCreateInfos(&mDeviceQueueInfos[0])
     .setEnabledExtensionCount(mDeviceEnabledExtensions.empty() ? 0 : static_cast<uint32_t>(mDeviceEnabledExtensions.size()))
@@ -590,7 +577,8 @@ sf::Vulkan& sf::Vulkan::createDevice() {
   deviceInfo.ppEnabledLayerNames = mDeviceEnabledLayers.empty() ? nullptr : &mDeviceEnabledLayers[0];
   deviceInfo.ppEnabledExtensionNames = mDeviceEnabledExtensions.empty() ? nullptr : &mDeviceEnabledExtensions[0];
 
-  assert(mSelectedPhysicalDevice.createDevice(&deviceInfo, nullptr, &mDevice) == vk::Result::eSuccess);
+  if(mSelectedPhysicalDevice.createDevice(&deviceInfo, nullptr, &mDevice) != vk::Result::eSuccess)
+    SF_CLOG("ERR: Cannot create device");
 
   mDevice.getQueue(mGraphicsQueueIndex, 0, &mGraphicsQueue);
   mDevice.getQueue(mComputeQueueIndex, 0, &mComputeQueue);
@@ -600,25 +588,36 @@ sf::Vulkan& sf::Vulkan::createDevice() {
 }
 
 sf::Vulkan& sf::Vulkan::waitForDeviceIdle() {
-  if((VkDevice)mDevice) 
+  if(mDevice) 
     mDevice.waitIdle();
 
   return *this;
 }
 
 void sf::Vulkan::destroy() {
-  if((VkDevice)mDevice)
+  waitForDeviceIdle();
+
+  if(mDevice) {
     mDevice.destroy(nullptr);
-
-  if(mSurfacePtr)
-    mInstance.destroySurfaceKHR(*mSurfacePtr, nullptr);
-
-  if((VkDebugUtilsMessengerEXT)mDebugUtilsMessenger) {
-    PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)mInstance.getProcAddr("vkDestroyDebugUtilsMessengerEXT");
-
-    func((VkInstance)mInstance, (VkDebugUtilsMessengerEXT)mDebugUtilsMessenger, nullptr);
+    mDevice = nullptr;
   }
 
-  if((VkInstance)mInstance)
+  if(mSurfacePtr) {
+    mInstance.destroySurfaceKHR(*mSurfacePtr, nullptr);
+    mSurfacePtr = nullptr;
+  }
+
+  if(mDebugUtilsMessenger) {
+    PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)mInstance.getProcAddr("vkDestroyDebugUtilsMessengerEXT");
+
+    func(mInstance, mDebugUtilsMessenger, nullptr);
+
+    mDebugUtilsMessenger = nullptr;
+  }
+
+  if(mInstance) {
     mInstance.destroy(nullptr);
+  
+    mInstance = nullptr;
+  }
 }

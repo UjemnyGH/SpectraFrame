@@ -5,6 +5,7 @@
 #include "sfVkCore.h"
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+#include "sfThreadPoolWorker.h"
 
 namespace sf {
   class Window {
@@ -24,11 +25,16 @@ namespace sf {
     std::vector<vk::Semaphore> mSwapchainImageAvailableSemaphores;
     std::vector<vk::Semaphore> mSwapchainRenderFinishedSemaphores;
 
+    vk::CommandPool mSwapchainCommandPool;
+    std::vector<vk::CommandBuffer> mSwapchainCommandBuffers;
+
     bool mWindowResized;
     int mWidth;
     int mHeight;
 
     bool mCreateVulkanDebugger;
+
+    ThreadPool mThreadPool;
 
     static void _framebufferCallback(GLFWwindow* wnd, int width, int height);
 
@@ -36,12 +42,50 @@ namespace sf {
 
     void _destroySwapchainRelatedObjects();
 
+    void _createSurface();
+
   public:
     static Window* sWindowInstancePtr;
-    
-    Window();
+   
+    static Window& window();
 
-    ~Window();
+    static Window& beginFrame();
+
+    static Window& endFrame();
+
+    static Window& sFullscreen();
+
+    static Window& sWindowed();
+
+    static bool sIsResized();
+
+    static uint32_t width();
+
+    static uint32_t height();
+
+    static const vk::Image& currentImage();
+
+    static const vk::ImageView& currentView();
+
+    static const std::vector<vk::Image>& images();
+
+    static const std::vector<vk::ImageView>& imageViews();
+
+    static vk::Fence& currentFence();
+
+    static vk::Semaphore& currentImageAvailableSemaphore();
+
+    static vk::Semaphore& currentRenderFinishedSemaphore();
+
+    static vk::CommandPool& commandPool();
+
+    static vk::CommandBuffer& currentCommandBuffer();
+
+    static const uint32_t imageIndex();
+
+    static ThreadPool& threadPool();
+
+    Window();
 
     virtual void start() {}
 
@@ -56,6 +100,10 @@ namespace sf {
     Window& create(const char* title, const int width, const int height);
 
     Window& runLoop();
+
+    Window& beginFrameRendering();
+
+    Window& endFrameRendering();
 
     Window& fullscreen();
 
@@ -83,7 +131,13 @@ namespace sf {
 
     vk::Semaphore& getCurrentRenderFinishedSemaphore();
 
-    const uint32_t getCurrentImageIndex() const; 
+    vk::CommandPool& getCommandPool();
+
+    vk::CommandBuffer& getCurrentCommandBuffer();
+
+    const uint32_t getCurrentImageIndex() const;
+
+    ThreadPool& getThreadPool();
 
     void destroy();
   };
