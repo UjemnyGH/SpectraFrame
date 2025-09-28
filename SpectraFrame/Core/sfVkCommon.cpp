@@ -168,7 +168,7 @@ sf::CopyBuffer& sf::CopyBuffer::copyBufferToImage(vk::Buffer& src, vk::Image& ds
   bufferImageCopy.bufferOffset = 0;
   bufferImageCopy.bufferRowLength = 0;
   bufferImageCopy.bufferImageHeight = 0;
-  bufferImageCopy.imageOffset = (vk::Offset3D) { 0, 0, 0 };
+  bufferImageCopy.imageOffset = vk::Offset3D{ 0, 0, 0 };
   bufferImageCopy.imageExtent = imageExtent;
   bufferImageCopy.imageSubresource = subresources;
 
@@ -179,8 +179,8 @@ sf::CopyBuffer& sf::CopyBuffer::copyBufferToImage(vk::Buffer& src, vk::Image& ds
 
 sf::CopyBuffer& sf::CopyBuffer::copyImageToImage(vk::Image& src, vk::Image& dst, const vk::Extent3D imageExtent, const vk::ImageLayout imageLayout, const vk::ImageSubresourceLayers subresources) {
   vk::ImageCopy imageCopy{};
-  imageCopy.srcOffset = (vk::Offset3D) { 0, 0, 0 };
-  imageCopy.dstOffset = (vk::Offset3D) { 0, 0, 0 };
+  imageCopy.srcOffset = vk::Offset3D{ 0, 0, 0 };
+  imageCopy.dstOffset = vk::Offset3D{ 0, 0, 0 };
   imageCopy.extent = imageExtent;
   imageCopy.srcSubresource = subresources;
   imageCopy.dstSubresource = subresources;
@@ -425,9 +425,9 @@ sf::Sampler& sf::Sampler::create(vk::CommandPool& commandPool, const vk::Queue s
   imageViewInfo
     .setImage(mImage)
     .setViewType(vk::ImageViewType::e2D)
-    .setComponents((vk::ComponentMapping){vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA})
+    .setComponents(vk::ComponentMapping{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA})
     .setFormat(vk::Format::eR8G8B8A8Srgb)
-    .setSubresourceRange((vk::ImageSubresourceRange){vk::ImageAspectFlagBits::eColor, 0, mMipmapLevels, 0, 1});
+    .setSubresourceRange(vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, mMipmapLevels, 0, 1});
 
   if(Vulkan::device().createImageView(&imageViewInfo, nullptr, &mImageView) != vk::Result::eSuccess)
     SF_CLOG("ERR: Cannot create sampler image view");
@@ -625,9 +625,9 @@ sf::DepthImage& sf::DepthImage::create(const vk::Extent3D extent, vk::CommandPoo
   imageViewInfo
     .setImage(mDepthImage)
     .setViewType(vk::ImageViewType::e2D)
-    .setComponents((vk::ComponentMapping){vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA})
+    .setComponents(vk::ComponentMapping{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA})
     .setFormat(imageInfo.format)
-    .setSubresourceRange((vk::ImageSubresourceRange){vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1});
+    .setSubresourceRange(vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1});
 
   if(Vulkan::device().createImageView(&imageViewInfo, nullptr, &mDepthImageView) != vk::Result::eSuccess)
     SF_CLOG("ERR: Cannot create depth image image view");
@@ -642,7 +642,7 @@ sf::DepthImage& sf::DepthImage::create(const vk::Extent3D extent, vk::CommandPoo
     .setCommandBuffer(oneTimeBuffer)
     .layouts(vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal)
     .accessMask(vk::AccessFlags(0), vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-    .subresources((vk::ImageSubresourceRange){vk::ImageAspectFlagBits::eDepth, 0,1, 0, 1})
+    .subresources(vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eDepth, 0,1, 0, 1})
     .transition(mDepthImage, vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
   commandBufferOneTimeEnd(oneTimeBuffer, pool, Vulkan::graphicsQueue());

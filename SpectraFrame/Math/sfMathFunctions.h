@@ -9,24 +9,17 @@ namespace sf {
 #define M_PI 3.14159265359
 #endif
 
-  float reverseSqrt32(float x);
+  inline float reverseSqrt32(float x);
 
-  float sqrt32(float x);
-
-  template <class T>
-  T abs(T value);
+  inline float sqrt32(float x);
 
   template <class T>
-  T clamp(const T value, const T min, const T max);
+  inline T abs(T value);
 
   template <class T>
-  T min(const T a, const T b);
-
-  template <class T>
-  T max(const T a, const T b);
-
-  template <class T>
-  T copysign(const T value, const T sign);
+  inline T clamp(const T value, const T min, const T max);
 }
+
+#include "sfMathFunctions.tpp"
 
 #endif

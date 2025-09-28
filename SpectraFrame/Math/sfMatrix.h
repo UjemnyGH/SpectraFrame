@@ -159,4 +159,6 @@ namespace sf {
   typedef Matrix4<double> DMat4;
 }
 
+#include "sfMatrix.tpp"
+
 #endif

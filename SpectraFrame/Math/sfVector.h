@@ -14,67 +14,67 @@ namespace sf {
   struct alignas(16) Vector3 {
     T x, y, z;
 
-    constexpr Vector3();
-    constexpr Vector3(T init);
-    constexpr Vector3(T _x, T _y, T _z = static_cast<T>(0));
+    inline Vector3();
+    inline Vector3(T init);
+    inline Vector3(T _x, T _y, T _z = static_cast<T>(0));
 
     template <class TN>
-    constexpr Vector3(const Vector3<TN>& cast);
+    inline Vector3(const Vector3<TN>& cast);
 
-    constexpr Vector3(const Vector4<T>& newVec);
+    inline Vector3(const Vector4<T>& newVec);
 
-    constexpr T& operator[](int axisIndex);
+    inline T& operator[](int axisIndex);
 
-    constexpr Vector3 operator+(const Vector3& a);
-    constexpr Vector3 operator-(const Vector3& a);
-    constexpr Vector3 operator*(const Vector3& a);
-    constexpr Vector3 operator/(const Vector3& a);
+    inline Vector3 operator+(const Vector3& a);
+    inline Vector3 operator-(const Vector3& a);
+    inline Vector3 operator*(const Vector3& a);
+    inline Vector3 operator/(const Vector3& a);
 
-    constexpr Vector3 operator+(const T& a);
-    constexpr Vector3 operator-(const T& a);
-    constexpr Vector3 operator*(const T& a);
-    constexpr Vector3 operator/(const T& a);
+    inline Vector3 operator+(const T& a);
+    inline Vector3 operator-(const T& a);
+    inline Vector3 operator*(const T& a);
+    inline Vector3 operator/(const T& a);
 
-    constexpr Vector3 operator+=(const Vector3& a);
-    constexpr Vector3 operator-=(const Vector3& a);
-    constexpr Vector3 operator*=(const Vector3& a);
-    constexpr Vector3 operator/=(const Vector3& a);
+    inline Vector3 operator+=(const Vector3& a);
+    inline Vector3 operator-=(const Vector3& a);
+    inline Vector3 operator*=(const Vector3& a);
+    inline Vector3 operator/=(const Vector3& a);
 
-    constexpr Vector3 operator+=(const T& a);
-    constexpr Vector3 operator-=(const T& a);
-    constexpr Vector3 operator*=(const T& a);
-    constexpr Vector3 operator/=(const T& a);
+    inline Vector3 operator+=(const T& a);
+    inline Vector3 operator-=(const T& a);
+    inline Vector3 operator*=(const T& a);
+    inline Vector3 operator/=(const T& a);
 
-    constexpr void operator=(const Vector3& a);
+    inline void operator=(const Vector3& a);
 
-    constexpr bool operator==(const Vector3& a);
-    constexpr bool operator!=(const Vector3& a);
+    inline bool operator==(const Vector3& a);
+    inline bool operator!=(const Vector3& a);
 
-    constexpr T dot(const Vector3& a);
-    constexpr static T dot(const Vector3& a, const Vector3& b);
+    inline T dot(const Vector3& a);
+    inline static T dot(const Vector3& a, const Vector3& b);
 
-    constexpr Vector3 cross(const Vector3& a);
-    constexpr static Vector3 cross(const Vector3& a, const Vector3& b);
+    inline Vector3 cross(const Vector3& a);
+    inline static Vector3 cross(const Vector3& a, const Vector3& b);
 
-    constexpr T length();
-    constexpr static T length(const Vector3& a);
+    inline T length();
+    inline static T length(const Vector3& a);
 
-    constexpr T distance(const Vector3& a);
-    constexpr static T distance(const Vector3& a, const Vector3& b);
+    inline T distance(const Vector3& a);
+    inline static T distance(const Vector3& a, const Vector3& b);
 
-    constexpr Vector3 normalize();
-    constexpr static Vector3 normalize(const Vector3& a);
+    inline Vector3 normalize();
+    inline static Vector3 normalize(const Vector3& a);
 
-    constexpr Vector3 abs();
-    constexpr static Vector3 abs(const Vector3& a);
+    inline Vector3 abs();
+    inline static Vector3 abs(const Vector3& a);
 
-    constexpr Vector3 negate();
-    constexpr static Vector3 negate(const Vector3& a);
+    inline Vector3 negate();
+    inline static Vector3 negate(const Vector3& a);
 
-    constexpr Vector3 clamp(const T& min, const T& max);
-    constexpr static Vector3 clamp(const Vector3& vec, const T& min, const T& max);
+    inline Vector3 clamp(const T& min, const T& max);
+    inline static Vector3 clamp(const Vector3& vec, const T& min, const T& max);
 
-    constexpr T* ptr();
+    inline T* ptr();
   };
 
   typedef Vector3<float>  FVec3;
@@ -84,71 +84,73 @@ namespace sf {
   struct alignas(16) Vector4 {
     T x, y, z, w;
 
-    constexpr Vector4();
-    constexpr Vector4(T init);
-    constexpr Vector4(T _x, T _y, T _z = static_cast<T>(0), T _w = static_cast<T>(0));
+    inline Vector4();
+    inline Vector4(T init);
+    inline Vector4(T _x, T _y, T _z = static_cast<T>(0), T _w = static_cast<T>(0));
 
     template <class TN>
-    constexpr Vector4(const Vector4<TN>& cast);
+    inline Vector4(const Vector4<TN>& cast);
 
-    constexpr Vector4(const Vector3<T>& newVec);
+    inline Vector4(const Vector3<T>& newVec);
 
-    constexpr T& operator[](int axisIndex);
+    inline T& operator[](int axisIndex);
 
-    constexpr Vector4 operator+(const Vector4& a);
-    constexpr Vector4 operator-(const Vector4& a);
-    constexpr Vector4 operator*(const Vector4& a);
-    constexpr Vector4 operator/(const Vector4& a);
+    inline Vector4 operator+(const Vector4& a);
+    inline Vector4 operator-(const Vector4& a);
+    inline Vector4 operator*(const Vector4& a);
+    inline Vector4 operator/(const Vector4& a);
 
-    constexpr Vector4 operator+(const T& a);
-    constexpr Vector4 operator-(const T& a);
-    constexpr Vector4 operator*(const T& a);
-    constexpr Vector4 operator/(const T& a);
+    inline Vector4 operator+(const T& a);
+    inline Vector4 operator-(const T& a);
+    inline Vector4 operator*(const T& a);
+    inline Vector4 operator/(const T& a);
 
-    constexpr Vector4 operator+=(const Vector4& a);
-    constexpr Vector4 operator-=(const Vector4& a);
-    constexpr Vector4 operator*=(const Vector4& a);
-    constexpr Vector4 operator/=(const Vector4& a);
+    inline Vector4 operator+=(const Vector4& a);
+    inline Vector4 operator-=(const Vector4& a);
+    inline Vector4 operator*=(const Vector4& a);
+    inline Vector4 operator/=(const Vector4& a);
 
-    constexpr Vector4 operator+=(const T& a);
-    constexpr Vector4 operator-=(const T& a);
-    constexpr Vector4 operator*=(const T& a);
-    constexpr Vector4 operator/=(const T& a);
+    inline Vector4 operator+=(const T& a);
+    inline Vector4 operator-=(const T& a);
+    inline Vector4 operator*=(const T& a);
+    inline Vector4 operator/=(const T& a);
 
-    constexpr void operator=(const Vector4& a);
+    inline void operator=(const Vector4& a);
 
-    constexpr bool operator==(const Vector4& a);
-    constexpr bool operator!=(const Vector4& a);
+    inline bool operator==(const Vector4& a);
+    inline bool operator!=(const Vector4& a);
     
-    constexpr T dot(const Vector4& a);
-    constexpr static T dot(const Vector4& a, const Vector4& b);
+    inline T dot(const Vector4& a);
+    inline static T dot(const Vector4& a, const Vector4& b);
 
-    constexpr Vector4 cross(const Vector4& a);
-    constexpr static Vector4 cross(const Vector4& a, const Vector4& b);
+    inline Vector4 cross(const Vector4& a);
+    inline static Vector4 cross(const Vector4& a, const Vector4& b);
 
-    constexpr T length();
-    constexpr static T length(const Vector4& a);
+    inline T length();
+    inline static T length(const Vector4& a);
 
-    constexpr T distance(const Vector4& a);
-    constexpr static T distance(const Vector4& a, const Vector4& b);
+    inline T distance(const Vector4& a);
+    inline static T distance(const Vector4& a, const Vector4& b);
 
-    constexpr Vector4 normalize();
-    constexpr static Vector4 normalize(const Vector4& a);
+    inline Vector4 normalize();
+    inline static Vector4 normalize(const Vector4& a);
 
-    constexpr Vector4 abs();
-    constexpr static Vector4 abs(const Vector4& a);
+    inline Vector4 abs();
+    inline static Vector4 abs(const Vector4& a);
 
-    constexpr Vector4 negate();
-    constexpr static Vector4 negate(const Vector4& a);
+    inline Vector4 negate();
+    inline static Vector4 negate(const Vector4& a);
 
-    constexpr Vector4 clamp(const T& min, const T& max);
-    constexpr static Vector4 clamp(const Vector4& vec, const T& min, const T& max);
+    inline Vector4 clamp(const T& min, const T& max);
+    inline static Vector4 clamp(const Vector4& vec, const T& min, const T& max);
 
-    constexpr T* ptr();
+    inline T* ptr();
   };
 
   typedef Vector4<float>  FVec4;
   typedef Vector4<double> DVec4;
 }
+
+#include "sfVector.tpp"
 
 #endif

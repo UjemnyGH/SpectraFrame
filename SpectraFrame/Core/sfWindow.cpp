@@ -4,6 +4,7 @@
 #include "sfWindow.h"
 #include "sfLogger.h"
 #include "sfVkCommon.h"
+#include "../Audio/sfAudioDevice.h"
 
 sf::Window* sf::Window::sWindowInstancePtr = nullptr;
 
@@ -120,7 +121,7 @@ void sf::Window::_createSurface() {
   vk::Win32SurfaceCreateInfoKHR win32SurfaceInfo{};
   win32SurfaceInfo
     .setHwnd(glfwGetWin32Window(mWindow))  
-    .setHinstance(GetModuleHandle());
+    .setHinstance(GetModuleHandle(NULL));
 
   mWindowSurface = Vulkan::instance().createWin32SurfaceKHR(win32SurfaceInfo);
 
@@ -244,6 +245,9 @@ sf::Window& sf::Window::create(const char* title, const int width, const int hei
 
   // Pass window class as pointer to all glfw callbacks
   glfwSetWindowUserPointer(mWindow, this);
+
+  // Open global OpenAL audio device
+  AudioDevice::open();
 
   mWidth = width;
   mHeight = height;
@@ -528,6 +532,9 @@ void sf::Window::destroy() {
   Vulkan::device().destroySwapchainKHR(mWindowSwapchain, nullptr);
   
   Vulkan::getVk().destroy();
+
+  // Close global OpenAL audio device
+  AudioDevice::close();
 
   glfwDestroyWindow(mWindow);
   glfwTerminate();

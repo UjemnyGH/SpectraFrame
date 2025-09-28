@@ -53,4 +53,6 @@ namespace sf {
   typedef Quaterion<double> DQuat;
 }
 
+#include "sfQuaterion.tpp"
+
 #endif

@@ -11,6 +11,8 @@
 #include "Core/sfPLYLoader.h"
 #include "Core/sfCommon.h"
 
+#include "Audio/sfAudioEmitter.h"
+
 class TestScene : public sf::Scene {
 public:
   TestScene() : sf::Scene("TestScene", true) {}
@@ -28,6 +30,7 @@ public:
   vk::DescriptorSetLayout pipeline2SetLayout;
 
   sf::VertexBuffer buffer;
+  sf::AudioEmitter audio;
 
   bool updateDescriptor = true;
 
@@ -52,7 +55,7 @@ public:
             cmd.draw(3, 1, 0, 0);
           }
         },
-         {"Geometry"}, "GeometryDepth"})
+        {"Geometry"}, "GeometryDepth"})
 
       .addAttachment(sf::RenderGraphManagerAttachment{"LightingPass", 
         [this](vk::CommandBuffer& cmd, sf::RenderGraphImageManager& imageManager) {
@@ -119,10 +122,10 @@ public:
 
     pipeline
       .setPipelineLayout(&layout)
-      .setBindings({(vk::VertexInputBindingDescription){0, sizeof(float) * 5, vk::VertexInputRate::eVertex}})
+      .setBindings({vk::VertexInputBindingDescription{0, sizeof(float) * 5, vk::VertexInputRate::eVertex}})
       .setAttributes({
-        (vk::VertexInputAttributeDescription){0, 0, vk::Format::eR32G32Sfloat, 0},
-        (vk::VertexInputAttributeDescription){1, 0, vk::Format::eR32G32B32Sfloat, sizeof(float) * 2}
+        vk::VertexInputAttributeDescription{0, 0, vk::Format::eR32G32Sfloat, 0},
+        vk::VertexInputAttributeDescription{1, 0, vk::Format::eR32G32B32Sfloat, sizeof(float) * 2}
       })
       .setDynamicStates({
         vk::DynamicState::eViewport,
@@ -198,6 +201,17 @@ public:
 
     createPipeline();
 
+    sf::AudioEmitter::setListenerVelocity(sf::Vector3<float>());
+    sf::AudioEmitter::setListenerPosition(sf::Vector3<float>());
+    sf::AudioEmitter::setListenerOrientation(sf::Vector3<float>(0.0f, 0.0f, -1.0f), sf::Vector3<float>(0.0f, 1.0f));
+
+    audio
+      .loadWAV("example.wav")
+      .setAudioPosition(sf::Vector3<float>())
+      .setGain(1.0f)
+      .setPitch(1.0f)
+      .play();
+
     SF_CDEBUG("Start ended");
   }
 
@@ -220,6 +234,9 @@ public:
     renderGraphManager.run(sf::Window::currentCommandBuffer(), "LightingPass");
 
     sf::Window::endFrame(); 
+    
+    vk::CommandBuffer cmd;
+    cmd.
   }
 
   virtual void lateUpdate() override {
